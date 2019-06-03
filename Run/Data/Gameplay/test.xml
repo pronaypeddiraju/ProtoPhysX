@@ -1,0 +1,14 @@
+<ImARoot name = "Im A Root Bro!">
+	<Element1 name = "XML Element for Vec2 " value = "3.0f, 2.0f"></Element1>
+	<Element2 name = "XML Element for IntVec2" value = "6, 8"></Element2>
+	<Element3 name = "XML Element for IntRange" value = "4~8"></Element3>
+	<Element4 name = "XML Element for IntRange" value = "6"></Element4>
+	<Element5 name = "XML Element for FloatRange" value = "3.f~7.f"></Element5>
+	<Element5 name = "XML Element for FloatRange" value = "5.67f"></Element5>
+	<Element6 name = "XML Element for Vec3" value = "1.0f, 2.0f, 3.0f"></Element6>
+	<Element7 name = "XML Element for AABB2" value = "10.f, 15.f, 30.f, 50.f"></Element7>
+	<Element8 name = "XML Element for Rgba" value = "151.f, 150.f, 130.f, 150.f"></Element8>
+	<Element9 name = "XML Element for Rgba" value = "141.f, 15.f, 162.f"></Element9>
+	<AnotherElement name = "This is another element"></AnotherElement>
+	<ThisAFloat name = "This a float" value = "2.0f"></ThisAFloat>
+</ImARoot>

@@ -1,0 +1,13 @@
+<material id="couch"
+  shader="default_lit.xml">
+
+
+  <diffuse 	src="example_colour.png" />
+  <normal  	src="example_normal.png" /> 
+  <spec    	src="example_spec.png" /> 
+  <emissive	src="test_normal.jpg" />
+
+  <sampler idx="0" type="linear" />
+  <sampler idx="1" type="linear" />
+
+</material>
