@@ -24,8 +24,34 @@
 #include "Engine/Renderer/SpriteSheet.hpp"
 #include "Engine/Renderer/Shader.hpp"
 #include "Engine/Renderer/TextureView.hpp"
-
+//PhysX Includes
 #include "ThirdParty/PhysX/include/PxPhysicsAPI.h"
+
+//PhysX Pragma Comments
+#if defined( _WIN64 )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/LowLevel_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/LowLevelAABB_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/LowLevelDynamics_static_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/PhysX_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCharacterKinematic_static_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCommon_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCooking_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXExtensions_static_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXFoundation_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXPvdSDK_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXTask_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXVehicle_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SampleBase_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SampleFramework_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SamplePlatform_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SampleRenderer_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/Samples_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SamplesToolkit_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SceneQuery_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SimulationController_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SnippetRender_static_64.lib" )
+//#pragma comment( lib, "ThirdParty/PhysX/lib/SnippetUtils_static_64.lib" )
+#endif
 
 //------------------------------------------------------------------------------------------------------------------------------
 //Create Camera and set to null 
@@ -296,9 +322,56 @@ void Game::SetStartupDebugRenderObjects()
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void Game::SetupPhysX()
+void Game::SetupPhysX(bool isInteractive)
 {
+	//PhysX starts off by setting up a Physics Foundation
+	m_PxFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, m_PxAllocator, m_PXErrorCallback);
+
+	//Create the PhysX Visual Debugger by giving it the current foundation
+	m_Pvd = PxCreatePvd(*m_PxFoundation);
+	//The PVD needs connection via a socket. It will run on the Address defined, in our case it's our machine
+	PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 10);
+	m_Pvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
+
+	//Create Physics! This creates an instance of the PhysX SDK
+	m_PhysX = PxCreatePhysics(PX_PHYSICS_VERSION, *m_PxFoundation, PxTolerancesScale(), true, m_Pvd);
+
+	//What is the description of this PhysX scene?
+	PxSceneDesc sceneDesc(m_PhysX->getTolerancesScale());
+	sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
+	//This creates CPU dispatcher threads or worker threads. We will make 2
+	m_PxDispatcher = PxDefaultCpuDispatcherCreate(2);
+	sceneDesc.cpuDispatcher = m_PxDispatcher;
+	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
+	//Create the scene now by passing the scene's description
+	m_PxScene = m_PhysX->createScene(sceneDesc);
+
+	PxPvdSceneClient* pvdClient = m_PxScene->getScenePvdClient();
+	if (pvdClient)
+	{
+		//I have a PVD client, so set some flags that it needs
+		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
+		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
+		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
+	}
+	m_PxMaterial = m_PhysX->createMaterial(0.5f, 0.5f, 0.6f);
+
+	//Start shoving shit into the scene
+	PxRigidStatic* groundPlane = PxCreatePlane(*m_PhysX, PxPlane(0, 1, 0, 0), *m_PxMaterial);
+	m_PxScene->addActor(*groundPlane);
 	
+	UNUSED(isInteractive);
+	/*
+	for (PxU32 i = 0; i < 5; i++)
+	{
+		CreatePhysXStack(PxTransform(PxVec3(0, 0, stackZ -= 10.0f)), 10, 2.0f);
+	}
+
+	if (!isInteractive)
+	{
+		CreateDynamicObject(PxTransform(PxVec3(0, 40, 100)), PxSphereGeometry(10), PxVec3(0, -50, -100));
+	}
+	*/
 }
 
 STATIC bool Game::TestEvent(EventArgs& args)
@@ -549,6 +622,23 @@ void Game::Shutdown()
 	//FreeResources();
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::PhysXShutdown()
+{
+	//Handle all shutdown code here for Nvidia PhysX
+	PX_RELEASE(m_PxScene);
+	PX_RELEASE(m_PxDispatcher);
+	PX_RELEASE(m_PhysX);
+	if (m_Pvd)
+	{
+		PxPvdTransport* transport = m_Pvd->getTransport();
+		m_Pvd->release();	m_Pvd = NULL;
+		PX_RELEASE(transport);
+	}
+	PX_RELEASE(m_PxFoundation);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::HandleKeyReleased(unsigned char keyCode)
 {
 	if(g_devConsole->IsOpen())

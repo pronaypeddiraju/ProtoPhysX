@@ -10,6 +10,15 @@
 //Game Systems
 #include "Game/GameCommon.hpp"
 //Third Party
+#include "extensions/PxDefaultAllocator.h"
+#include "extensions/PxDefaultCpuDispatcher.h"
+#include "extensions/PxDefaultErrorCallback.h"
+#include "PxFoundation.h"
+#include "pvd/PxPvd.h"
+
+#define PX_RELEASE(x)	if(x)	{ x->release(); x = NULL;	}
+
+using namespace physx; 
 
 //------------------------------------------------------------------------------------------------------------------------------
 class Texture;
@@ -47,7 +56,7 @@ public:
 	void								CreateInitialMeshes();
 	void								CreateInitialLight();
 	void								SetStartupDebugRenderObjects();
-	void								SetupPhysX();
+	void								SetupPhysX(bool isInteractive);
 
 
 	void								HandleKeyPressed( unsigned char keyCode );
@@ -66,6 +75,7 @@ public:
 
 	void								DebugEnabled();
 	void								Shutdown();
+	void								PhysXShutdown();
 
 	void								Render() const;
 	void								CreateTestWidget();
@@ -182,7 +192,20 @@ public:
 	//------------------------------------------------------------------------------------------------------------------------------
 
 	//NxPhysicsSDK*						pPhysics; //declare globally
+	PxDefaultAllocator					m_PxAllocator;
+	PxDefaultErrorCallback				m_PXErrorCallback;
 
+	PxFoundation*						m_PxFoundation = NULL;
+	PxPhysics*							m_PhysX = NULL;
+
+	PxDefaultCpuDispatcher*				m_PxDispatcher = NULL;
+	PxScene*							m_PxScene = NULL;
+
+	PxMaterial*							m_PxMaterial = NULL;
+
+	PxPvd*								m_Pvd = NULL;
+
+	PxReal								stackZ = 10.0f;
 
 
 	//------------------------------------------------------------------------------------------------------------------------------
