@@ -29,28 +29,12 @@
 
 //PhysX Pragma Comments
 #if defined( _WIN64 )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/LowLevel_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/LowLevelAABB_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/LowLevelDynamics_static_64.lib" )
 #pragma comment( lib, "ThirdParty/PhysX/lib/PhysX_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCharacterKinematic_static_64.lib" )
 #pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCommon_64.lib" )
 #pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCooking_64.lib" )
 #pragma comment( lib, "ThirdParty/PhysX/lib/PhysXExtensions_static_64.lib" )
 #pragma comment( lib, "ThirdParty/PhysX/lib/PhysXFoundation_64.lib" )
 #pragma comment( lib, "ThirdParty/PhysX/lib/PhysXPvdSDK_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXTask_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXVehicle_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SampleBase_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SampleFramework_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SamplePlatform_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SampleRenderer_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/Samples_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SamplesToolkit_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SceneQuery_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SimulationController_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SnippetRender_static_64.lib" )
-//#pragma comment( lib, "ThirdParty/PhysX/lib/SnippetUtils_static_64.lib" )
 #endif
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -115,6 +99,8 @@ void Game::StartUp()
 	//g_debugRenderer->DebugAddToLog(options, "F1 and F2 to increase/decrease ambient light intensity", Rgba::WHITE, 20000.f);
 	//g_debugRenderer->DebugAddToLog(options, "F3 to toggle directional light", Rgba::WHITE, 20000.f);
 	//g_debugRenderer->DebugAddToLog(options, "F4 to toggle normal or lit shaders", Rgba::WHITE, 20000.f);	
+
+	SetupPhysX(true);
 
 }
 
@@ -361,17 +347,52 @@ void Game::SetupPhysX(bool isInteractive)
 	m_PxScene->addActor(*groundPlane);
 	
 	UNUSED(isInteractive);
-	/*
+	
 	for (PxU32 i = 0; i < 5; i++)
 	{
-		CreatePhysXStack(PxTransform(PxVec3(0, 0, stackZ -= 10.0f)), 10, 2.0f);
+		CreatePhysXStack(Vec3(0,0,stackZ -= 10.f), 10, 2.f);
 	}
 
 	if (!isInteractive)
 	{
-		CreateDynamicObject(PxTransform(PxVec3(0, 40, 100)), PxSphereGeometry(10), PxVec3(0, -50, -100));
+		CreateDynamicObject(PxTransform(PxVec3(0, 40, 100)), PxSphereGeometry(10), Vec3(0, -50, -100));
 	}
-	*/
+}
+
+void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
+{
+	PxTransform pxTransform = PxTransform(PxVec3(position.x, position.y, position.z));
+
+	//We are going to make a stack of boxes
+	PxBoxGeometry box = PxBoxGeometry((PxReal)halfExtent, (PxReal)halfExtent, (PxReal)halfExtent);
+	PxShape* shape = m_PhysX->createShape(box, *m_PxMaterial);
+	
+	//Loop to stack everything in a pyramid shape
+	for (PxU32 i = 0; i < size; i++)
+	{
+		for (PxU32 j = 0; j < size - i; j++)
+		{
+			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), PxReal(i * 2 + 1), 0) * halfExtent);
+			PxRigidDynamic* body = m_PhysX->createRigidDynamic(pxTransform.transform(localTm));
+			body->attachShape(*shape);
+			PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
+			m_PxScene->addActor(*body);
+		}
+	}
+
+	//release the shape now, we don't need it anymore since everything has been added to the PhysX scene
+	shape->release();
+}
+
+PxRigidDynamic* Game::CreateDynamicObject(const PxTransform& pxTransform, const PxGeometry& pxGeometry, const Vec3& velocity)
+{
+	PxVec3 pxVelocity = PxVec3(velocity.x, velocity.y, velocity.z);
+
+	PxRigidDynamic* dynamic = PxCreateDynamic(*m_PhysX, pxTransform, pxGeometry, *m_PxMaterial, 10.0f);
+	dynamic->setAngularDamping(0.5f);
+	dynamic->setLinearVelocity(pxVelocity);
+	m_PxScene->addActor(*dynamic);
+	return dynamic;
 }
 
 STATIC bool Game::TestEvent(EventArgs& args)
@@ -619,6 +640,7 @@ void Game::Shutdown()
 	delete m_capsule;
 	m_capsule = nullptr;
 
+	PhysXShutdown();
 	//FreeResources();
 }
 
@@ -773,26 +795,6 @@ void Game::Render() const
 
 }
 
-void Game::CreateTestWidget()
-{
-	ImGui::NewFrame();
-
-	//float value = 0.5f;
-	//float color[3] = { 0.f, 1.f, 1.f };
-	//bool show = true;
-
-	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-	ImGui::Checkbox("Demo Window", &ui_testCheck1);      // Edit bools storing our window open/close state
-	ImGui::Checkbox("Another Window", &ui_testCheck2);
-
-	ImGui::SliderFloat("float", &ui_testSlider, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-	ImGui::ColorEdit3("clear color", (float*)&ui_testColor); // Edit 3 floats representing a color
-
-	ImGui::End();
-}
-
 void Game::RenderUsingMaterial() const
 {
 	g_renderContext->BindMaterial(m_testMaterial);
@@ -903,6 +905,7 @@ void Game::PostRender()
 
 void Game::Update( float deltaTime )
 {
+	UpdatePhysX(deltaTime);
 
 	UpdateLightPositions();
 
@@ -963,11 +966,33 @@ void Game::Update( float deltaTime )
 	UpdateImGUI();
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::UpdatePhysX(float deltaTime)
+{
+	m_PxScene->simulate(deltaTime);
+	m_PxScene->fetchResults(true);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdateImGUI()
 {
 	//Use this place to create/update info for imGui
-	
-	CreateTestWidget();
+	ImGui::NewFrame();
+
+	//float value = 0.5f;
+	//float color[3] = { 0.f, 1.f, 1.f };
+	//bool show = true;
+
+	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+	ImGui::Checkbox("Demo Window", &ui_testCheck1);      // Edit bools storing our window open/close state
+	ImGui::Checkbox("Another Window", &ui_testCheck2);
+
+	ImGui::SliderFloat("float", &ui_testSlider, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+	ImGui::ColorEdit3("clear color", (float*)&ui_testColor); // Edit 3 floats representing a color
+
+	ImGui::End();
 }
 
 //Use this chunk of code only for screen shake!
@@ -1066,23 +1091,6 @@ void Game::UpdateLightPositions()
 	options.beginColor = Rgba::MAGENTA;
 	options.endColor = Rgba::MAGENTA * 0.4f;
 	g_debugRenderer->DebugRenderPoint(options, m_dynamicLight3Pos, 0.1f, 0.1f, nullptr);
-
-
-	/*
-	if(m_dynamicLight0Pos.y < 3.f)
-	{
-	m_dynamicLight0Pos = Vec3(-3.f, deltaSeconds * m_ySpeed , 0.f);
-	}
-	else
-	{
-	m_dynamicLight0Pos = Vec3(-3.f, deltaSeconds * -m_ySpeed , 0.f);
-	}
-
-	g_renderContext->m_cpuLightBuffer.lights[0].position = m_dynamicLight0Pos;
-	*/
-
-	//RenderIsoSprite();
-
 }
 
 void Game::RenderIsoSprite() const
@@ -1095,22 +1103,23 @@ void Game::RenderIsoSprite() const
 
 	AABB2 box = AABB2(mins, maxs);
 
-	SpriteDefenition* def = m_isoSprite->GetSpriteForLocalDirection(m_testDirection);
+	//SpriteDefenition def = m_isoSprite->GetSpriteForLocalDirection(m_testDirection);
 
-	Vec2 spriteMins;
-	Vec2 spriteMaxs;
-	def->GetUVs(spriteMins, spriteMaxs);
+	//Vec2 spriteMins;
+	//Vec2 spriteMaxs;
+	/*def->GetUVs(spriteMins, spriteMaxs);*/
 
 	//g_renderContext->BindMaterial(m_testMaterial);
-	spriteMins.y = 1 - spriteMins.y;
-	spriteMaxs.y = 1 - spriteMaxs.y;
+// 	spriteMins.y = 1 - spriteMins.y;
+// 	spriteMaxs.y = 1 - spriteMaxs.y;
 	
 	CPUMesh mesh;
-	CPUMeshAddQuad(&mesh, AABB2(Vec2(-0.5f, -0.5f), Vec2(0.5f, 0.5f)), Rgba::WHITE, spriteMins, spriteMaxs);
+	CPUMeshAddQuad(&mesh, AABB2(Vec2(-0.5f, -0.5f), Vec2(0.5f, 0.5f)), Rgba::WHITE);
 	m_quad->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
 
 	g_renderContext->BindShader(g_renderContext->CreateOrGetShaderFromFile("default_unlit.xml"));
-	TextureView* view = def->GetTexture();
+	//TextureView* view = def->GetTexture();
+	TextureView* view = m_laborerSheet;
 	g_renderContext->BindTextureView(0U, view);
 	g_renderContext->SetModelMatrix(m_quadTransfrom);
 

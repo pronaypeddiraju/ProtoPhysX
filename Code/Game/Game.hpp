@@ -15,6 +15,7 @@
 #include "extensions/PxDefaultErrorCallback.h"
 #include "PxFoundation.h"
 #include "pvd/PxPvd.h"
+#include "PxRigidDynamic.h"
 
 #define PX_RELEASE(x)	if(x)	{ x->release(); x = NULL;	}
 
@@ -58,8 +59,10 @@ public:
 	void								SetStartupDebugRenderObjects();
 	void								SetupPhysX(bool isInteractive);
 
+	void								CreatePhysXStack(const Vec3& position, uint size, float halfExtent);
+	PxRigidDynamic*						CreateDynamicObject(const PxTransform& pxTransform, const PxGeometry& pxGeometry, const Vec3& velocity);
 
-	void								HandleKeyPressed( unsigned char keyCode );
+	void								HandleKeyPressed(unsigned char keyCode);
 	void								HandleKeyReleased( unsigned char keyCode );
 	void								HandleCharacter( unsigned char charCode );
 
@@ -78,7 +81,6 @@ public:
 	void								PhysXShutdown();
 
 	void								Render() const;
-	void								CreateTestWidget();
 	void								RenderUsingMaterial() const;
 	void								RenderUsingLegacy() const;
 	void								RenderIsoSprite() const;
@@ -86,6 +88,7 @@ public:
 	void								DebugRenderToCamera() const;
 	void								PostRender();
 	void								Update( float deltaTime );
+	void								UpdatePhysX( float deltaTime );
 	void								UpdateImGUI();
 	void								UpdateMouseInputs(float deltaTime);
 	void								UpdateLightPositions();
