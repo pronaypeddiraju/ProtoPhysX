@@ -28,23 +28,41 @@
 #include "ThirdParty/PhysX/include/PxPhysicsAPI.h"
 
 //PhysX Pragma Comments
-#if defined( _WIN64 )
-#pragma comment( lib, "ThirdParty/PhysX/lib/PhysX_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCommon_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXCooking_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXExtensions_static_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXFoundation_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/PhysXPvdSDK_static_64.lib" )
+#if ( defined( _WIN64 ) & defined( _DEBUG ) )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysX_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXCommon_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXCooking_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXExtensions_static_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXFoundation_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXPvdSDK_static_64.lib" )
+#elif ( defined ( _WIN64 ) & defined( NDEBUG ) )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysX_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXCommon_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXCooking_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXExtensions_static_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXFoundation_64.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXPvdSDK_static_64.lib" )
+#elif ( defined( _WIN32 ) & defined( _DEBUG ) )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysX_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXCommon_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXCooking_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXExtensions_static_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXFoundation_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXPvdSDK_static_32.lib" )
+#elif ( defined( _WIN32 ) & defined( NDEBUG ) )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysX_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXCommon_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXCooking_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXExtensions_static_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXFoundation_32.lib" )
+#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXPvdSDK_static_32.lib" )
 #endif
 
 //------------------------------------------------------------------------------------------------------------------------------
-//Create Camera and set to null 
-//Camera *g_mainCamera = nullptr; // Define these next, and group by data type - primitives first, structs next, classes next; spaces only necessary if there are clear categories
-
 float g_shakeAmount = 0.0f;
 
 RandomNumberGenerator* g_randomNumGen;
-extern RenderContext* g_renderContext;	// Declare these first
+extern RenderContext* g_renderContext;
 extern AudioSystem* g_audio;
 bool g_debugMode = false;
 
@@ -60,12 +78,14 @@ Game::Game()
 	g_debugRenderer->SetDebugFont(m_squirrelFont);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 Game::~Game()
 {
 	m_isGameAlive = false;
 	Shutdown();
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::StartUp()
 {
 	SetupMouseData();
@@ -96,14 +116,12 @@ void Game::StartUp()
 	//Only to keep track of what input does what
 	DebugRenderOptionsT options;
 	options.space = DEBUG_RENDER_SCREEN;
-	//g_debugRenderer->DebugAddToLog(options, "F1 and F2 to increase/decrease ambient light intensity", Rgba::WHITE, 20000.f);
-	//g_debugRenderer->DebugAddToLog(options, "F3 to toggle directional light", Rgba::WHITE, 20000.f);
-	//g_debugRenderer->DebugAddToLog(options, "F4 to toggle normal or lit shaders", Rgba::WHITE, 20000.f);	
 
 	SetupPhysX(true);
 
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::SetupMouseData()
 {
 	//IntVec2 clientCenter = g_windowContext->GetClientCenter();
@@ -127,10 +145,8 @@ void Game::SetupCameras()
 	m_camPosition = Vec3(0.f, 0.f, -10.f);
 	m_mainCamera->SetColorTarget(nullptr);
 	m_mainCamera->SetPerspectiveProjection( m_camFOVDegrees, 0.1f, 100.0f, SCREEN_ASPECT);
-	//m_mainCamera->SetOrthoView(Vec2(-10.f * SCREEN_ASPECT, -10.f), Vec2(10.f * SCREEN_ASPECT, 10.f));
 
 	m_clearScreenColor = new Rgba(0.f, 0.f, 0.5f, 1.f);
-
 }
 
 void Game::SetStartupDebugRenderObjects()
@@ -569,16 +585,6 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 			//Set volume back to 1
 			//g_audio->SetSoundPlaybackVolume(m_testPlayback, 1.0f);
 
-			/*
-			DebugRenderOptionsT options;
-			//Setup Debug Options
-			options.mode = DEBUG_RENDER_ALWAYS;
-			options.beginColor = Rgba::WHITE;
-			options.endColor = Rgba::YELLOW;
-			const char* debugText1 = std::to_string(g_devConsole->GetFrameCount()).c_str();
-			g_debugRenderer->DebugAddToLog(options, debugText1, Rgba::YELLOW, 1.f);
-			*/
-			
 			//Toggle Shader here
 			m_normalMode = !m_normalMode;
 
@@ -1230,7 +1236,7 @@ void Game::CreateIsoSpriteDefenitions()
 	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(96), Vec2(0.5, 0.25)));
 	directions.push_back(Vec3(1.f, 0.f, 0.f));
 	
-	m_isoSprite = new IsoSpriteDefenition(&spriteDefs[0], &directions[0], 7);
+//	m_isoSprite = new IsoSpriteDefenition(&spriteDefs[0], &directions[0], 7);
 }
 
 void Game::GetandSetShaders()
