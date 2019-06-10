@@ -142,7 +142,7 @@ void Game::SetupCameras()
 	m_devConsoleCamera->SetColorTarget(nullptr);
 
 	//Set Projection Perspective for new Cam
-	m_camPosition = Vec3(0.f, 0.f, -10.f);
+	m_camPosition = Vec3(10.f, 50.f, -100.f);
 	m_mainCamera->SetColorTarget(nullptr);
 	m_mainCamera->SetPerspectiveProjection( m_camFOVDegrees, 0.1f, 100.0f, SCREEN_ASPECT);
 
@@ -358,12 +358,9 @@ void Game::SetupPhysX(bool isInteractive)
 	}
 	m_PxMaterial = m_PhysX->createMaterial(0.5f, 0.5f, 0.6f);
 
-	//Start shoving shit into the scene
+	//Add things to your scene
 	PxRigidStatic* groundPlane = PxCreatePlane(*m_PhysX, PxPlane(0, 1, 0, 0), *m_PxMaterial);
 	m_PxScene->addActor(*groundPlane);
-	
-	UNUSED(isInteractive);
-	
 	for (PxU32 i = 0; i < 5; i++)
 	{
 		CreatePhysXStack(Vec3(0,0,stackZ -= 10.f), 10, 2.f);
@@ -760,16 +757,9 @@ void Game::Render() const
 		g_renderContext->EnableDirectionalLight();
 	}
 
-	if(m_useMaterial)
-	{
-		//RenderUsingMaterial();
-	}
-	else
-	{
-		//RenderUsingLegacy();
-	}
-
+	//RenderUsingMaterial();
 	RenderIsoSprite();
+	RenderPhysXScene();
 
 	g_renderContext->EndCamera();
 
@@ -825,37 +815,78 @@ void Game::RenderUsingMaterial() const
 	g_renderContext->DrawMesh(m_capsule);
 }
 
-void Game::RenderUsingLegacy() const
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::RenderPhysXScene() const
 {
-	//Bind the shader we are using (This case it's the default shader we made in Shaders folder)
-	//g_renderContext->BindShader( m_shader );
-	if(m_normalMode)
+	//Get the actors in the scene
+	PxScene* scene;
+	PxGetPhysics().getScenes(&scene, 1);
+
+	//Bind Material
+	g_renderContext->BindMaterial(m_testMaterial);
+
+	PxU32 numActors = scene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
+	if (numActors)
 	{
-		g_renderContext->BindShader( m_normalShader );
+		std::vector<PxRigidActor*> actors(numActors);
+		scene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<PxActor**>(&actors[0]), numActors);
+
+		RenderPhysXActors(actors, (int)actors.size());
 	}
-	else
+}
+
+void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, const Rgba& color) const
+{
+	//Look for maximum of 3 shapes to draw per actor
+	PxShape* shapes[3];
+
+	for (int i = 0; i < numActors; i++)
 	{
-		g_renderContext->BindShader( m_defaultLit );
+		const PxU32 numShapes = actors[i]->getNbShapes();
+		actors[i]->getShapes(shapes, numShapes);
+
+		const bool sleeping = actors[i]->is<PxRigidDynamic>() ? actors[i]->is<PxRigidDynamic>()->isSleeping() : false;
+
+		for (PxU32 j = 0; j < numShapes; j++)
+		{
+			int type = shapes[j]->getGeometryType();
+
+			switch (type)
+			{
+			case PxGeometryType::eBOX:
+			{
+				PxBoxGeometry box;
+				shapes[j]->getBoxGeometry(box);
+				Vec3 halfExtents = PxVectorToVec(box.halfExtents);
+
+				CPUMesh mesh;
+				CPUMeshAddCube(&mesh, AABB3(-1.f * halfExtents, halfExtents), color);
+				m_cube->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
+
+				PxMat44 pxTransform = actors[i]->getGlobalPose();
+				PxVec3 pxPosition = pxTransform.getPosition();
+
+				Matrix44 pose;
+				pose.SetIVector(PxVectorToVec(pxTransform.column0));
+				pose.SetJVector(PxVectorToVec(pxTransform.column1));
+				pose.SetKVector(PxVectorToVec(pxTransform.column2));
+				pose.SetTVector(PxVectorToVec(pxTransform.column3));
+
+				Matrix44 position;
+				position.SetTranslation3D(PxVectorToVec(pxPosition), position);
+				position.SetRotationFromMatrix(position, pose);
+				
+
+				g_renderContext->SetModelMatrix(position);
+				g_renderContext->DrawMesh(m_cube);
+			}
+			break;
+			default:
+				break;
+			}
+
+		}
 	}
-
-	//Render the cube
-	g_renderContext->BindTextureViewWithSampler(0U, m_boxTexturePath);  
-	g_renderContext->SetModelMatrix(m_cubeTransform);
-	g_renderContext->DrawMesh( m_cube ); 
-
-	//Render the sphere
-	g_renderContext->BindTextureViewWithSampler(0U, m_sphereTexturePath); 
-	g_renderContext->SetModelMatrix( m_sphereTransform ); 
-	g_renderContext->DrawMesh( m_sphere ); 
-
-	//Render the Quad
-	g_renderContext->BindTextureViewWithSampler(0U, nullptr);
-	g_renderContext->SetModelMatrix(Matrix44::IDENTITY);
-	g_renderContext->DrawMesh( m_quad );
-
-	//Render the capsule here
-	g_renderContext->SetModelMatrix(m_capsuleModel);
-	g_renderContext->DrawMesh(m_capsule);
 }
 
 void Game::DebugRenderToScreen() const
@@ -1044,6 +1075,29 @@ void Game::CheckCollisions()
 {		
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
+Vec3 Game::PxVectorToVec(const PxVec3& pxVector) const
+{
+	Vec3 vector;
+	vector.x = pxVector.x;
+	vector.y = pxVector.y;
+	vector.z = pxVector.z;
+
+	return vector;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+Vec4 Game::PxVectorToVec(const PxVec4& pxVector) const
+{
+	Vec4 vector;
+	vector.x = pxVector.x;
+	vector.y = pxVector.y;
+	vector.z = pxVector.z;
+	vector.w = pxVector.w;
+
+	return vector;
+}
+
 bool Game::IsAlive()
 {
 	//Check if alive
@@ -1153,7 +1207,7 @@ void Game::CreateInitialMeshes()
 	m_quad = new GPUMesh(g_renderContext);
 	m_quad->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
 
-	// create a cube (centered at zero, with sides 2 length)
+	// create a cube (centered at zero, with sides 1 length)
 	CPUMeshAddCube( &mesh, AABB3( Vec3(-0.5f, -0.5f, -0.5f), Vec3(0.5f, 0.5f, 0.5f)) ); 
 	
 	//mesh.SetLayout<Vertex_Lit>();

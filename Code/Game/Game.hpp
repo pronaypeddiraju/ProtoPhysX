@@ -82,7 +82,8 @@ public:
 
 	void								Render() const;
 	void								RenderUsingMaterial() const;
-	void								RenderUsingLegacy() const;
+	void								RenderPhysXScene() const;
+	void								RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, const Rgba& color = Rgba::WHITE) const;
 	void								RenderIsoSprite() const;
 	void								DebugRenderToScreen() const;
 	void								DebugRenderToCamera() const;
@@ -96,6 +97,9 @@ public:
 	void								ClearGarbageEntities();
 	void								CheckXboxInputs();
 	void								CheckCollisions();
+
+	Vec3								PxVectorToVec(const PxVec3& pxVector) const; 
+	Vec4								PxVectorToVec(const PxVec4& pxVector) const;
 
 	bool								IsAlive();
 private:
