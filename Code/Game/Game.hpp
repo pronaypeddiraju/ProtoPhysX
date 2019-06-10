@@ -60,7 +60,7 @@ public:
 	void								SetupPhysX(bool isInteractive);
 
 	void								CreatePhysXStack(const Vec3& position, uint size, float halfExtent);
-	PxRigidDynamic*						CreateDynamicObject(const PxTransform& pxTransform, const PxGeometry& pxGeometry, const Vec3& velocity);
+	PxRigidDynamic*						CreateDynamicObject(const PxGeometry& pxGeometry, const Vec3& velocity);
 
 	void								HandleKeyPressed(unsigned char keyCode);
 	void								HandleKeyReleased( unsigned char keyCode );

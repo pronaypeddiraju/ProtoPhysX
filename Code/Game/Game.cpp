@@ -142,7 +142,7 @@ void Game::SetupCameras()
 	m_devConsoleCamera->SetColorTarget(nullptr);
 
 	//Set Projection Perspective for new Cam
-	m_camPosition = Vec3(10.f, 50.f, -100.f);
+	m_camPosition = Vec3(10.f, 30.f, -100.f);
 	m_mainCamera->SetColorTarget(nullptr);
 	m_mainCamera->SetPerspectiveProjection( m_camFOVDegrees, 0.1f, 100.0f, SCREEN_ASPECT);
 
@@ -356,6 +356,7 @@ void Game::SetupPhysX(bool isInteractive)
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
 	}
+
 	m_PxMaterial = m_PhysX->createMaterial(0.5f, 0.5f, 0.6f);
 
 	//Add things to your scene
@@ -364,11 +365,6 @@ void Game::SetupPhysX(bool isInteractive)
 	for (PxU32 i = 0; i < 5; i++)
 	{
 		CreatePhysXStack(Vec3(0,0,stackZ -= 10.f), 10, 2.f);
-	}
-
-	if (!isInteractive)
-	{
-		CreateDynamicObject(PxTransform(PxVec3(0, 40, 100)), PxSphereGeometry(10), Vec3(0, -50, -100));
 	}
 }
 
@@ -397,14 +393,20 @@ void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
 	shape->release();
 }
 
-PxRigidDynamic* Game::CreateDynamicObject(const PxTransform& pxTransform, const PxGeometry& pxGeometry, const Vec3& velocity)
+PxRigidDynamic* Game::CreateDynamicObject(const PxGeometry& pxGeometry, const Vec3& velocity)
 {
 	PxVec3 pxVelocity = PxVec3(velocity.x, velocity.y, velocity.z);
+
+	Matrix44 camTransform = m_mainCamera->GetModelMatrix();
+	Vec3 translation = camTransform.GetTVector();
+
+	PxTransform pxTransform(PxVec3(0, 40, 100));
 
 	PxRigidDynamic* dynamic = PxCreateDynamic(*m_PhysX, pxTransform, pxGeometry, *m_PxMaterial, 10.0f);
 	dynamic->setAngularDamping(0.5f);
 	dynamic->setLinearVelocity(pxVelocity);
 	m_PxScene->addActor(*dynamic);
+
 	return dynamic;
 }
 
@@ -522,6 +524,10 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 		case RIGHT_ARROW:
 		case LEFT_ARROW:
 		case SPACE_KEY:
+		{
+			CreateDynamicObject(PxSphereGeometry(3.f), Vec3(0, -50, -100));
+		}
+		break;
 		case N_KEY:
 		case F1_KEY:
 		{
@@ -826,12 +832,12 @@ void Game::RenderPhysXScene() const
 	g_renderContext->BindMaterial(m_testMaterial);
 
 	PxU32 numActors = scene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
-	if (numActors)
+	if (numActors > 0)
 	{
 		std::vector<PxRigidActor*> actors(numActors);
 		scene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<PxActor**>(&actors[0]), numActors);
 
-		RenderPhysXActors(actors, (int)actors.size());
+		RenderPhysXActors(actors, (int)actors.size(), Rgba::GREEN);
 	}
 }
 
@@ -845,7 +851,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 		const PxU32 numShapes = actors[i]->getNbShapes();
 		actors[i]->getShapes(shapes, numShapes);
 
-		const bool sleeping = actors[i]->is<PxRigidDynamic>() ? actors[i]->is<PxRigidDynamic>()->isSleeping() : false;
+		//const bool sleeping = actors[i]->is<PxRigidDynamic>() ? actors[i]->is<PxRigidDynamic>()->isSleeping() : false;
 
 		for (PxU32 j = 0; j < numShapes; j++)
 		{
@@ -878,6 +884,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 				
 
 				g_renderContext->SetModelMatrix(position);
+				g_renderContext->BindTextureView(0U, nullptr);
 				g_renderContext->DrawMesh(m_cube);
 			}
 			break;
@@ -992,8 +999,6 @@ void Game::Update( float deltaTime )
 
 	m_quadTransfrom = Matrix44::SetTranslation3D(Vec3(0.f, 0.f, 0.f), m_quadTransfrom);
 
-	//g_debugRenderer->DebugRenderPoint(Vec3(0.f, 0.f, 0.f), 0.f, 1.f);
-
 	m_testDirection = m_testDirection.GetRotatedAboutYDegrees(currentTime * ui_testSlider);
 
 	CheckCollisions();
@@ -1006,7 +1011,7 @@ void Game::Update( float deltaTime )
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdatePhysX(float deltaTime)
 {
-	m_PxScene->simulate(deltaTime);
+	m_PxScene->simulate(deltaTime * 2.f);
 	m_PxScene->fetchResults(true);
 }
 
@@ -1015,10 +1020,6 @@ void Game::UpdateImGUI()
 {
 	//Use this place to create/update info for imGui
 	ImGui::NewFrame();
-
-	//float value = 0.5f;
-	//float color[3] = { 0.f, 1.f, 1.f };
-	//bool show = true;
 
 	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 

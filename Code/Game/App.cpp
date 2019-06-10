@@ -153,6 +153,9 @@ void App::Update()
 	float deltaTime = static_cast<float>(m_timeAtThisFrameBegin - m_timeAtLastFrameBegin);
 	deltaTime = Clamp(deltaTime, 0.0f, 0.1f);
 
+	//DEBUG
+	deltaTime = 1.f / 60.f;
+
 	g_devConsole->UpdateConsole(deltaTime);
 
 	m_game->Update(deltaTime);
