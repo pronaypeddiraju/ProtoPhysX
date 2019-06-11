@@ -57,7 +57,7 @@ public:
 	void								CreateInitialMeshes();
 	void								CreateInitialLight();
 	void								SetStartupDebugRenderObjects();
-	void								SetupPhysX(bool isInteractive);
+	void								SetupPhysX();
 
 	void								CreatePhysXStack(const Vec3& position, uint size, float halfExtent);
 	PxRigidDynamic*						CreateDynamicObject(const PxGeometry& pxGeometry, const Vec3& velocity);
@@ -78,7 +78,6 @@ public:
 
 	void								DebugEnabled();
 	void								Shutdown();
-	void								PhysXShutdown();
 
 	void								Render() const;
 	void								RenderUsingMaterial() const;
@@ -91,6 +90,8 @@ public:
 	void								Update( float deltaTime );
 	void								UpdatePhysX( float deltaTime );
 	void								UpdateImGUI();
+	void								UpdateImGUITestWidget();
+	void								UpdatePhysXWidget();
 	void								UpdateMouseInputs(float deltaTime);
 	void								UpdateLightPositions();
 	void								UpdateCamera(float deltaTime);
@@ -192,27 +193,13 @@ public:
 	float								ui_testColor[3] = { 0.f, 0.f, 0.f };
 	bool								ui_testCheck1 = false;
 	bool								ui_testCheck2 = true;
-
+	float								ui_camPosition[3] = { 0.f, 0.f, 0.f };
 
 	//------------------------------------------------------------------------------------------------------------------------------
 	// PhysX Test Variables
 	//------------------------------------------------------------------------------------------------------------------------------
 
-	//NxPhysicsSDK*						pPhysics; //declare globally
-	PxDefaultAllocator					m_PxAllocator;
-	PxDefaultErrorCallback				m_PXErrorCallback;
-
-	PxFoundation*						m_PxFoundation = NULL;
-	PxPhysics*							m_PhysX = NULL;
-
-	PxDefaultCpuDispatcher*				m_PxDispatcher = NULL;
-	PxScene*							m_PxScene = NULL;
-
-	PxMaterial*							m_PxMaterial = NULL;
-
-	PxPvd*								m_Pvd = NULL;
-
-	PxReal								stackZ = 10.0f;
+	float								stackZ = 10.0f;
 
 
 	//------------------------------------------------------------------------------------------------------------------------------

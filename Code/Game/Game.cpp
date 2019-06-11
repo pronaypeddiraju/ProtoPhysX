@@ -14,6 +14,7 @@
 #include "Engine/Math/Matrix44.hpp"
 #include "Engine/Math/RandomNumberGenerator.hpp"
 #include "Engine/Math/Vertex_Lit.hpp"
+#include "Engine/PhysXSystem/PhysXSystem.hpp"
 #include "Engine/Renderer/BitmapFont.hpp"
 #include "Engine/Renderer/Camera.hpp"
 #include "Engine/Renderer/ColorTargetView.hpp"
@@ -117,7 +118,7 @@ void Game::StartUp()
 	DebugRenderOptionsT options;
 	options.space = DEBUG_RENDER_SCREEN;
 
-	SetupPhysX(true);
+	SetupPhysX();
 
 }
 
@@ -142,7 +143,7 @@ void Game::SetupCameras()
 	m_devConsoleCamera->SetColorTarget(nullptr);
 
 	//Set Projection Perspective for new Cam
-	m_camPosition = Vec3(10.f, 30.f, -100.f);
+	m_camPosition = Vec3(30.f, 30.f, 60.f);
 	m_mainCamera->SetColorTarget(nullptr);
 	m_mainCamera->SetPerspectiveProjection( m_camFOVDegrees, 0.1f, 100.0f, SCREEN_ASPECT);
 
@@ -324,31 +325,12 @@ void Game::SetStartupDebugRenderObjects()
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void Game::SetupPhysX(bool isInteractive)
+void Game::SetupPhysX()
 {
-	//PhysX starts off by setting up a Physics Foundation
-	m_PxFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, m_PxAllocator, m_PXErrorCallback);
+	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
+	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
 
-	//Create the PhysX Visual Debugger by giving it the current foundation
-	m_Pvd = PxCreatePvd(*m_PxFoundation);
-	//The PVD needs connection via a socket. It will run on the Address defined, in our case it's our machine
-	PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate("127.0.0.1", 5425, 10);
-	m_Pvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
-
-	//Create Physics! This creates an instance of the PhysX SDK
-	m_PhysX = PxCreatePhysics(PX_PHYSICS_VERSION, *m_PxFoundation, PxTolerancesScale(), true, m_Pvd);
-
-	//What is the description of this PhysX scene?
-	PxSceneDesc sceneDesc(m_PhysX->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-	//This creates CPU dispatcher threads or worker threads. We will make 2
-	m_PxDispatcher = PxDefaultCpuDispatcherCreate(2);
-	sceneDesc.cpuDispatcher = m_PxDispatcher;
-	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-	//Create the scene now by passing the scene's description
-	m_PxScene = m_PhysX->createScene(sceneDesc);
-
-	PxPvdSceneClient* pvdClient = m_PxScene->getScenePvdClient();
+	PxPvdSceneClient* pvdClient = pxScene->getScenePvdClient();
 	if (pvdClient)
 	{
 		//I have a PVD client, so set some flags that it needs
@@ -357,24 +339,29 @@ void Game::SetupPhysX(bool isInteractive)
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
 	}
 
-	m_PxMaterial = m_PhysX->createMaterial(0.5f, 0.5f, 0.6f);
+	PxMaterial* pxMat;
+	pxMat = physX->createMaterial(0.5f, 0.5f, 0.6f);
 
 	//Add things to your scene
-	PxRigidStatic* groundPlane = PxCreatePlane(*m_PhysX, PxPlane(0, 1, 0, 0), *m_PxMaterial);
-	m_PxScene->addActor(*groundPlane);
+	PxRigidStatic* groundPlane = PxCreatePlane(*physX, PxPlane(0, 1, 0, 0), *pxMat);
+	pxScene->addActor(*groundPlane);
 	for (PxU32 i = 0; i < 5; i++)
 	{
-		CreatePhysXStack(Vec3(0,0,stackZ -= 10.f), 10, 2.f);
+		CreatePhysXStack(Vec3(0,0, stackZ -= 10.f), 10, 2.f);
 	}
 }
 
 void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
 {
+	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
+	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
+
 	PxTransform pxTransform = PxTransform(PxVec3(position.x, position.y, position.z));
 
 	//We are going to make a stack of boxes
 	PxBoxGeometry box = PxBoxGeometry((PxReal)halfExtent, (PxReal)halfExtent, (PxReal)halfExtent);
-	PxShape* shape = m_PhysX->createShape(box, *m_PxMaterial);
+	PxMaterial* pxMaterial = physX->createMaterial(0.5f, 0.5f, 0.6f);
+	PxShape* shape = physX->createShape(box, *pxMaterial);
 	
 	//Loop to stack everything in a pyramid shape
 	for (PxU32 i = 0; i < size; i++)
@@ -382,10 +369,10 @@ void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
 		for (PxU32 j = 0; j < size - i; j++)
 		{
 			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), PxReal(i * 2 + 1), 0) * halfExtent);
-			PxRigidDynamic* body = m_PhysX->createRigidDynamic(pxTransform.transform(localTm));
+			PxRigidDynamic* body = physX->createRigidDynamic(pxTransform.transform(localTm));
 			body->attachShape(*shape);
 			PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
-			m_PxScene->addActor(*body);
+			pxScene->addActor(*body);
 		}
 	}
 
@@ -395,6 +382,10 @@ void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
 
 PxRigidDynamic* Game::CreateDynamicObject(const PxGeometry& pxGeometry, const Vec3& velocity)
 {
+	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
+	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
+	PxMaterial* pxMaterial = physX->createMaterial(0.5f, 0.5f, 0.6f);
+
 	PxVec3 pxVelocity = PxVec3(velocity.x, velocity.y, velocity.z);
 
 	Matrix44 camTransform = m_mainCamera->GetModelMatrix();
@@ -402,10 +393,10 @@ PxRigidDynamic* Game::CreateDynamicObject(const PxGeometry& pxGeometry, const Ve
 
 	PxTransform pxTransform(PxVec3(0, 40, 100));
 
-	PxRigidDynamic* dynamic = PxCreateDynamic(*m_PhysX, pxTransform, pxGeometry, *m_PxMaterial, 10.0f);
+	PxRigidDynamic* dynamic = PxCreateDynamic(*physX, pxTransform, pxGeometry, *pxMaterial, 10.0f);
 	dynamic->setAngularDamping(0.5f);
 	dynamic->setLinearVelocity(pxVelocity);
-	m_PxScene->addActor(*dynamic);
+	pxScene->addActor(*dynamic);
 
 	return dynamic;
 }
@@ -649,24 +640,7 @@ void Game::Shutdown()
 	delete m_capsule;
 	m_capsule = nullptr;
 
-	PhysXShutdown();
 	//FreeResources();
-}
-
-//------------------------------------------------------------------------------------------------------------------------------
-void Game::PhysXShutdown()
-{
-	//Handle all shutdown code here for Nvidia PhysX
-	PX_RELEASE(m_PxScene);
-	PX_RELEASE(m_PxDispatcher);
-	PX_RELEASE(m_PhysX);
-	if (m_Pvd)
-	{
-		PxPvdTransport* transport = m_Pvd->getTransport();
-		m_Pvd->release();	m_Pvd = NULL;
-		PX_RELEASE(transport);
-	}
-	PX_RELEASE(m_PxFoundation);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -949,7 +923,7 @@ void Game::PostRender()
 
 void Game::Update( float deltaTime )
 {
-	UpdatePhysX(deltaTime);
+	//UpdatePhysX(deltaTime);
 
 	UpdateLightPositions();
 
@@ -964,7 +938,6 @@ void Game::Update( float deltaTime )
 		m_devConsoleSetup = true;
 	}
 
-	//UpdateCamera(deltaTime);
 	g_renderContext->m_frameCount++;
 
 	CheckXboxInputs();
@@ -976,8 +949,8 @@ void Game::Update( float deltaTime )
 	
 	g_debugRenderer->DebugAddToLog(options, text, Rgba::YELLOW, 0.f, currentTime);
 
-	text = "F5 to Toggle Material/Legacy mode";
-	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f);
+	text = "Frame Rate %f";
+	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f, (1.f / deltaTime));
 	
 	text = "UP/DOWN to increase/decrease emissive factor";
 	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f);
@@ -986,12 +959,7 @@ void Game::Update( float deltaTime )
 	Matrix44 camTransform = Matrix44::MakeFromEuler( m_mainCamera->GetEuler(), m_rotationOrder ); 
 	camTransform = Matrix44::SetTranslation3D(m_camPosition, camTransform);
 	m_mainCamera->SetModelMatrix(camTransform);
-	
-	//float currentTime = static_cast<float>(GetCurrentTimeSeconds());
 
-	// Set the cube to rotate around y (which is up currently),
-	// and move the object to the left by 5 units (-x)
-	//m_cubeTransform = Matrix44::MakeFromEuler( Vec3(60.0f * currentTime, 0.0f, 0.0f), m_rotationOrder ); 
 	m_cubeTransform = Matrix44::SetTranslation3D( Vec3(-5.0f, 0.0f, 0.0f), m_cubeTransform);
 
 	m_sphereTransform = Matrix44::MakeFromEuler( Vec3(0.0f, -45.0f * currentTime, 0.0f) ); 
@@ -1011,15 +979,32 @@ void Game::Update( float deltaTime )
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdatePhysX(float deltaTime)
 {
-	m_PxScene->simulate(deltaTime * 2.f);
-	m_PxScene->fetchResults(true);
+	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
+
+	pxScene->simulate(deltaTime * 2.f);
+	pxScene->fetchResults(true);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdateImGUI()
 {
-	//Use this place to create/update info for imGui
 	ImGui::NewFrame();
+
+	UpdateImGUITestWidget();
+	//UpdatePhysXWidget();
+
+	ImGui::End();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::UpdateImGUITestWidget()
+{
+	//Use this place to create/update info for imGui
+
+	//Read Cam Position
+	ui_camPosition[0] = m_camPosition.x;
+	ui_camPosition[1] = m_camPosition.y;
+	ui_camPosition[2] = m_camPosition.z;
 
 	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
@@ -1029,8 +1014,21 @@ void Game::UpdateImGUI()
 
 	ImGui::SliderFloat("float", &ui_testSlider, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
 	ImGui::ColorEdit3("clear color", (float*)&ui_testColor); // Edit 3 floats representing a color
+	ImGui::DragFloat3("Camera Position", ui_camPosition);
 
-	ImGui::End();
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+	//Write CamPos
+	m_camPosition.x = ui_camPosition[0];
+	m_camPosition.y = ui_camPosition[1];
+	m_camPosition.z = ui_camPosition[2];
+
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::UpdatePhysXWidget()
+{
+	//Add code for your PhysX widget here
 }
 
 //Use this chunk of code only for screen shake!

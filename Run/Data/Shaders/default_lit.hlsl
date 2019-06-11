@@ -195,7 +195,7 @@ float4 FragmentFunction( v2f_t input ) : SV_Target0
 
 
    // output it; 
-   //return float4(1.f, 0.f, 0.f, 1.f);
-   return finalColor; 
+   return float4(1.f, 0.f, 0.f, 1.f);
+   //return finalColor; 
 }
 

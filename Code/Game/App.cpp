@@ -11,6 +11,7 @@
 #include "Engine/Math/MathUtils.hpp"
 #include "Engine/Renderer/DebugRender.hpp"
 #include "Engine/Renderer/RenderContext.hpp"
+#include "Engine/PhysXSystem/PhysXSystem.hpp"
 //Game Systems
 #include "Game/Game.hpp"
 
@@ -79,6 +80,8 @@ void App::StartUp()
 
 	g_ImGUI = new ImGUISystem(g_renderContext);
 
+	g_PxPhysXSystem = new PhysXSystem();
+
 	m_game = new Game();
 	m_game->StartUp();
 	
@@ -98,6 +101,9 @@ void App::ShutDown()
 
 	delete g_audio;
 	g_audio = nullptr;
+
+	delete g_PxPhysXSystem;
+	g_PxPhysXSystem = nullptr;
 
 	delete g_devConsole;
 	g_devConsole = nullptr;
@@ -132,6 +138,7 @@ void App::BeginFrame()
 	g_eventSystem->BeginFrame();
 	g_debugRenderer->BeginFrame();
 	g_ImGUI->BeginFrame();
+	g_PxPhysXSystem->BeginFrame();
 }
 
 void App::EndFrame()
@@ -143,6 +150,7 @@ void App::EndFrame()
 	g_eventSystem->EndFrame();
 	g_debugRenderer->EndFrame();
 	g_ImGUI->EndFrame();
+	g_PxPhysXSystem->EndFrame();
 }
 
 void App::Update()
@@ -157,6 +165,7 @@ void App::Update()
 	deltaTime = 1.f / 60.f;
 
 	g_devConsole->UpdateConsole(deltaTime);
+	g_PxPhysXSystem->Update(deltaTime);
 
 	m_game->Update(deltaTime);
 

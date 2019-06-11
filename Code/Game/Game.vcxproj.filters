@@ -22,6 +22,9 @@
     <ClCompile Include="Main_Windows.cpp">
       <Filter>Framework</Filter>
     </ClCompile>
+    <ClCompile Include="PhysXGame.cpp">
+      <Filter>Gameplay</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Entity.hpp">
@@ -37,6 +40,9 @@
       <Filter>Framework</Filter>
     </ClInclude>
     <ClInclude Include="EngineBuildPreferences.hpp">
+      <Filter>Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="PhysXGame.hpp">
       <Filter>Gameplay</Filter>
     </ClInclude>
   </ItemGroup>
