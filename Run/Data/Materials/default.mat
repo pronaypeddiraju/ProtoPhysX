@@ -1,0 +1,13 @@
+<material id="default"
+  shader="default_lit.xml">
+
+
+  <diffuse 	src="WHITE.png" />
+  <normal  	src="FLAT.png" /> 
+  <spec    	src="example_spec.png" /> 
+  <emissive	src="test_normal.jpg" />
+
+  <sampler idx="0" type="linear" />
+  <sampler idx="1" type="linear" />
+
+</material>

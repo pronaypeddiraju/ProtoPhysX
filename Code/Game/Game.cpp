@@ -26,38 +26,7 @@
 #include "Engine/Renderer/Shader.hpp"
 #include "Engine/Renderer/TextureView.hpp"
 //PhysX Includes
-#include "ThirdParty/PhysX/include/PxPhysicsAPI.h"
-
-//PhysX Pragma Comments
-#if ( defined( _WIN64 ) & defined( _DEBUG ) )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysX_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXCommon_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXCooking_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXExtensions_static_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXFoundation_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x64/PhysXPvdSDK_static_64.lib" )
-#elif ( defined ( _WIN64 ) & defined( NDEBUG ) )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysX_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXCommon_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXCooking_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXExtensions_static_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXFoundation_64.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x64/PhysXPvdSDK_static_64.lib" )
-#elif ( defined( _WIN32 ) & defined( _DEBUG ) )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysX_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXCommon_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXCooking_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXExtensions_static_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXFoundation_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/debug_x86/PhysXPvdSDK_static_32.lib" )
-#elif ( defined( _WIN32 ) & defined( NDEBUG ) )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysX_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXCommon_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXCooking_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXExtensions_static_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXFoundation_32.lib" )
-#pragma comment( lib, "ThirdParty/PhysX/lib/release_x86/PhysXPvdSDK_static_32.lib" )
-#endif
+//#include "ThirdParty/PhysX/include/PxPhysicsAPI.h"
 
 //------------------------------------------------------------------------------------------------------------------------------
 float g_shakeAmount = 0.0f;
@@ -145,7 +114,7 @@ void Game::SetupCameras()
 	//Set Projection Perspective for new Cam
 	m_camPosition = Vec3(30.f, 30.f, 60.f);
 	m_mainCamera->SetColorTarget(nullptr);
-	m_mainCamera->SetPerspectiveProjection( m_camFOVDegrees, 0.1f, 100.0f, SCREEN_ASPECT);
+	m_mainCamera->SetPerspectiveProjection( m_camFOVDegrees, 0.1f, 1000.0f, SCREEN_ASPECT);
 
 	m_clearScreenColor = new Rgba(0.f, 0.f, 0.5f, 1.f);
 }
@@ -516,7 +485,7 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 		case LEFT_ARROW:
 		case SPACE_KEY:
 		{
-			CreateDynamicObject(PxSphereGeometry(3.f), Vec3(0, -50, -100));
+			g_PxPhysXSystem->CreateDynamicObject(PxSphereGeometry(3.f), m_dynamicSpawnVelocity, m_dynamicSpawnPos);
 		}
 		break;
 		case N_KEY:
@@ -640,6 +609,12 @@ void Game::Shutdown()
 	delete m_capsule;
 	m_capsule = nullptr;
 
+	delete m_pxCube;
+	m_pxCube = nullptr;
+
+	delete m_pxSphere;
+	m_pxSphere = nullptr;
+
 	//FreeResources();
 }
 
@@ -728,7 +703,7 @@ void Game::Render() const
 	g_renderContext->m_cpuLightBuffer.emissiveFactor = emissive;
 
 	// enable a point light as some position in the world with a normal quadratic falloff; 
-	if(m_enableDirectional)
+	if(!m_enableDirectional)
 	{
 		g_renderContext->DisableDirectionalLight();
 	}
@@ -738,17 +713,17 @@ void Game::Render() const
 	}
 
 	//RenderUsingMaterial();
+
+	//Render the Quad
+	g_renderContext->BindMaterial(m_defaultMaterial);
+	g_renderContext->BindTextureViewWithSampler(0U, nullptr);
+	g_renderContext->SetModelMatrix(m_baseQuadTransform);
+	g_renderContext->DrawMesh(m_baseQuad);
+
 	RenderIsoSprite();
 	RenderPhysXScene();
 
-	g_renderContext->EndCamera();
-
-	/*
-	//Render the Quad
-	g_renderContext->BindTextureViewWithSampler(0U, nullptr);
-	g_renderContext->SetModelMatrix(m_baseQuadTransform);
-	g_renderContext->DrawMesh( m_baseQuad );	
-	*/
+	g_renderContext->EndCamera();	
 
 	if(!m_consoleDebugOnce)
 	{
@@ -776,17 +751,14 @@ void Game::RenderUsingMaterial() const
 	g_renderContext->BindMaterial(m_testMaterial);
 
 	//Render the cube
-	//g_renderContext->BindTextureViewWithSampler(0U, m_boxTexturePath);  
 	g_renderContext->SetModelMatrix(m_cubeTransform);
 	g_renderContext->DrawMesh( m_cube ); 
 
 	//Render the sphere
-	//g_renderContext->BindTextureViewWithSampler(0U, m_sphereTexturePath); 
 	g_renderContext->SetModelMatrix( m_sphereTransform ); 
 	g_renderContext->DrawMesh( m_sphere ); 
 
 	//Render the Quad
-	//g_renderContext->BindTextureViewWithSampler(0U, nullptr);
 	g_renderContext->SetModelMatrix(Matrix44::IDENTITY);
 	g_renderContext->DrawMesh( m_quad );
 
@@ -803,7 +775,7 @@ void Game::RenderPhysXScene() const
 	PxGetPhysics().getScenes(&scene, 1);
 
 	//Bind Material
-	g_renderContext->BindMaterial(m_testMaterial);
+	g_renderContext->BindMaterial(m_defaultMaterial);
 
 	PxU32 numActors = scene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
 	if (numActors > 0)
@@ -811,7 +783,7 @@ void Game::RenderPhysXScene() const
 		std::vector<PxRigidActor*> actors(numActors);
 		scene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<PxActor**>(&actors[0]), numActors);
 
-		RenderPhysXActors(actors, (int)actors.size(), Rgba::GREEN);
+		RenderPhysXActors(actors, (int)actors.size(), Rgba(0.f, 0.4f, 0.f, 1.f));
 	}
 }
 
@@ -819,6 +791,9 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 {
 	//Look for maximum of 3 shapes to draw per actor
 	PxShape* shapes[3];
+
+	CPUMesh mesh;
+	CPUMesh sphereMesh;
 
 	for (int i = 0; i < numActors; i++)
 	{
@@ -837,29 +812,55 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 			{
 				PxBoxGeometry box;
 				shapes[j]->getBoxGeometry(box);
-				Vec3 halfExtents = PxVectorToVec(box.halfExtents);
+				Vec3 halfExtents = g_PxPhysXSystem->PxVectorToVec(box.halfExtents);
 
-				CPUMesh mesh;
 				CPUMeshAddCube(&mesh, AABB3(-1.f * halfExtents, halfExtents), color);
-				m_cube->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
-
+				m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
+				
 				PxMat44 pxTransform = actors[i]->getGlobalPose();
 				PxVec3 pxPosition = pxTransform.getPosition();
 
 				Matrix44 pose;
-				pose.SetIVector(PxVectorToVec(pxTransform.column0));
-				pose.SetJVector(PxVectorToVec(pxTransform.column1));
-				pose.SetKVector(PxVectorToVec(pxTransform.column2));
-				pose.SetTVector(PxVectorToVec(pxTransform.column3));
+				pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+				pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
 
 				Matrix44 position;
-				position.SetTranslation3D(PxVectorToVec(pxPosition), position);
+				position.SetTranslation3D(g_PxPhysXSystem->PxVectorToVec(pxPosition), position);
 				position.SetRotationFromMatrix(position, pose);
 				
 
 				g_renderContext->SetModelMatrix(position);
-				g_renderContext->BindTextureView(0U, nullptr);
-				g_renderContext->DrawMesh(m_cube);
+				g_renderContext->DrawMesh(m_pxCube);
+			}
+			break;
+			case PxGeometryType::eSPHERE:
+			{
+				PxSphereGeometry sphere;
+				shapes[j]->getSphereGeometry(sphere);
+
+				PxMat44 pxTransform = actors[i]->getGlobalPose();
+				PxVec3 pxPosition = pxTransform.getPosition();
+
+				float radius = sphere.radius;
+				CPUMeshAddUVSphere(&sphereMesh, g_PxPhysXSystem->PxVectorToVec(pxPosition), radius, Rgba::YELLOW);
+				m_pxSphere->CreateFromCPUMesh<Vertex_Lit>(&sphereMesh, GPU_MEMORY_USAGE_STATIC);
+
+				/*
+				Matrix44 pose;
+				pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+				pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+				*/
+
+				Matrix44 position;
+				position.SetTranslation3D(g_PxPhysXSystem->PxVectorToVec(pxPosition), position);
+				position.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+
+				g_renderContext->SetModelMatrix(position);
+				g_renderContext->DrawMesh(m_pxSphere);
 			}
 			break;
 			default:
@@ -913,6 +914,9 @@ void Game::PostRender()
 		g_debugRenderer->SetClientDimensions( ctv->m_height, ctv->m_width );
 
 		m_isDebugSetup = true;
+
+		EventArgs args;
+		ToggleAllPointLights(args);
 	}
 
 	//All screen Debug information
@@ -1006,6 +1010,18 @@ void Game::UpdateImGUITestWidget()
 	ui_camPosition[1] = m_camPosition.y;
 	ui_camPosition[2] = m_camPosition.z;
 
+	ui_dirLight[0] = m_directionalLightPos.x;
+	ui_dirLight[1] = m_directionalLightPos.y;
+	ui_dirLight[2] = m_directionalLightPos.z;
+
+	ui_dynamicSpawnPos[0] = m_dynamicSpawnPos.x;
+	ui_dynamicSpawnPos[1] = m_dynamicSpawnPos.y;
+	ui_dynamicSpawnPos[2] = m_dynamicSpawnPos.z;
+
+	ui_dynamicVelocity[0] = m_dynamicSpawnVelocity.x;
+	ui_dynamicVelocity[1] = m_dynamicSpawnVelocity.y;
+	ui_dynamicVelocity[2] = m_dynamicSpawnVelocity.z;
+
 	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
 	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
@@ -1015,6 +1031,9 @@ void Game::UpdateImGUITestWidget()
 	ImGui::SliderFloat("float", &ui_testSlider, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
 	ImGui::ColorEdit3("clear color", (float*)&ui_testColor); // Edit 3 floats representing a color
 	ImGui::DragFloat3("Camera Position", ui_camPosition);
+	ImGui::DragFloat3("Light Direction", ui_dirLight);
+	ImGui::DragFloat3("Dynamic Spawn Position", ui_dynamicSpawnPos);
+	ImGui::DragFloat3("Dynamic Spawn velocity", ui_dynamicVelocity);
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
@@ -1023,6 +1042,19 @@ void Game::UpdateImGUITestWidget()
 	m_camPosition.y = ui_camPosition[1];
 	m_camPosition.z = ui_camPosition[2];
 
+	m_directionalLightPos.x = ui_dirLight[0];
+	m_directionalLightPos.y = ui_dirLight[1];
+	m_directionalLightPos.z = ui_dirLight[2];
+
+	m_dynamicSpawnPos.x = ui_dynamicSpawnPos[0];
+	m_dynamicSpawnPos.y = ui_dynamicSpawnPos[1];
+	m_dynamicSpawnPos.z = ui_dynamicSpawnPos[2];
+
+	m_dynamicSpawnVelocity.x = ui_dynamicVelocity[0];
+	m_dynamicSpawnVelocity.y = ui_dynamicVelocity[1];
+	m_dynamicSpawnVelocity.z = ui_dynamicVelocity[2];
+
+	m_directionalLightPos.Normalize();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1074,28 +1106,6 @@ void Game::CheckCollisions()
 {		
 }
 
-//------------------------------------------------------------------------------------------------------------------------------
-Vec3 Game::PxVectorToVec(const PxVec3& pxVector) const
-{
-	Vec3 vector;
-	vector.x = pxVector.x;
-	vector.y = pxVector.y;
-	vector.z = pxVector.z;
-
-	return vector;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------
-Vec4 Game::PxVectorToVec(const PxVec4& pxVector) const
-{
-	Vec4 vector;
-	vector.x = pxVector.x;
-	vector.y = pxVector.y;
-	vector.z = pxVector.z;
-	vector.w = pxVector.w;
-
-	return vector;
-}
 
 bool Game::IsAlive()
 {
@@ -1106,10 +1116,13 @@ bool Game::IsAlive()
 void Game::LoadGameMaterials()
 {
 	m_testMaterial = g_renderContext->CreateOrGetMaterialFromFile(m_materialPath);
+	m_defaultMaterial = g_renderContext->CreateOrGetMaterialFromFile(m_defaultMaterialPath);
 }
 
 void Game::UpdateLightPositions()
 {
+	g_renderContext->EnableDirectionalLight(Vec3::ZERO, m_directionalLightPos);
+
 	//Update all the 4 light positions
 	float currentTime = static_cast<float>(GetCurrentTimeSeconds());
 	DebugRenderOptionsT options;
@@ -1189,7 +1202,8 @@ void Game::RenderIsoSprite() const
 
 void Game::CreateInitialLight()
 {
-	EnableDirectionalLight(Vec3(1.f, 1.f, 1.f), Vec3(0.f, 0.f, 1.f));
+	m_directionalLightPos = Vec3(-1.f, -1.f, -1.f).GetNormalized();
+	EnableDirectionalLight(Vec3(1.f, 1.f, 1.f), m_directionalLightPos);
 
 	EnablePointLight(1U, m_dynamicLight0Pos, Vec3(1.f, 0.f, 0.5f),Rgba::GREEN);
 	EnablePointLight(2U, m_dynamicLight1Pos, Vec3(0.f, -1.f, 0.f), Rgba::BLUE, 1.f, Vec3(0.f, 1.f, 0.f), Vec3(0.f, 0.1f, 0.f));
@@ -1224,7 +1238,7 @@ void Game::CreateInitialMeshes()
 
 	//Create another quad as a base plane
 	mesh.Clear();
-	CPUMeshAddQuad(&mesh, AABB2(Vec2(-50.f, -50.f), Vec2(50.f, 50.f)));
+	CPUMeshAddQuad(&mesh, AABB2(Vec2(-1000.f, -1000.f), Vec2(1000.f, 1000.f)), Rgba::BLUE);
 
 	//mesh.SetLayout<Vertex_Lit>();
 	m_baseQuad = new GPUMesh( g_renderContext ); 
@@ -1242,6 +1256,9 @@ void Game::CreateInitialMeshes()
 
 	m_capsuleModel = Matrix44::IDENTITY;
 	m_capsuleModel = Matrix44::MakeFromEuler(Vec3(-90.f, 0.f, 0.f));
+
+	m_pxCube = new GPUMesh(g_renderContext);
+	m_pxSphere = new GPUMesh(g_renderContext);
 }
 
 void Game::LoadGameTextures()

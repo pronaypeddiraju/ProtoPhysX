@@ -99,9 +99,6 @@ public:
 	void								CheckXboxInputs();
 	void								CheckCollisions();
 
-	Vec3								PxVectorToVec(const PxVec3& pxVector) const; 
-	Vec4								PxVectorToVec(const PxVec4& pxVector) const;
-
 	bool								IsAlive();
 private:
 	bool								m_isGameAlive = false;
@@ -125,13 +122,14 @@ public:
 	Shader*								m_normalShader = nullptr;
 	Shader*								m_defaultLit = nullptr;
 	std::string							m_defaultShaderPath = "default_unlit.00.hlsl";
-	std::string							m_shaderLitPath = "default_lit_PCUN.hlsl";
+	std::string							m_shaderLitPath = "default_lit.hlsl";
 	std::string							m_normalColorShader = "normal_shader.hlsl";
 	std::string							m_testImagePath = "Test_StbiFlippedAndOpenGL.png";
 	std::string							m_boxTexturePath = "woodcrate.jpg";
 	std::string							m_sphereTexturePath = "2k_earth_daymap.jpg";
 	std::string							m_xmlShaderPath = "default_unlit.xml";
 	std::string							m_materialPath = "couch.mat";
+	std::string							m_defaultMaterialPath = "default.mat";
 
 	Camera*								m_mainCamera = nullptr;
 	Camera*								m_devConsoleCamera = nullptr;
@@ -144,7 +142,6 @@ public:
 	float								m_devConsoleScreenWidth = 0.f;
 	float								m_devConsoleScreenHeight = 0.f;
 
-	//FOR ASSIGNMENT 4:
 	// Define the shapes, and how are they positionedin the world; 
 	GPUMesh*							m_cube = nullptr; 
 	Matrix44							m_cubeTransform; // cube's model matrix
@@ -174,12 +171,14 @@ public:
 	Vec3								m_dynamicLight1Pos = Vec3::ZERO;
 	Vec3								m_dynamicLight2Pos = Vec3::ZERO;
 	Vec3								m_dynamicLight3Pos = Vec3::ZERO;
-	
+	Vec3								m_directionalLightPos;
+
 	//Light movement
 	float								m_ySpeed = 2.f;
 
 	//Material
 	Material*							m_testMaterial = nullptr;
+	Material*							m_defaultMaterial = nullptr;
 	bool								m_useMaterial = true;
 
 	float								m_emissiveFactor = 0.f;
@@ -194,6 +193,9 @@ public:
 	bool								ui_testCheck1 = false;
 	bool								ui_testCheck2 = true;
 	float								ui_camPosition[3] = { 0.f, 0.f, 0.f };
+	float								ui_dirLight[3] = { -1.f, -1.f, -1.f };
+	float								ui_dynamicSpawnPos[3] = { -1.f, -1.f, -1.f };
+	float								ui_dynamicVelocity[3] = { -1.f, -1.f, -1.f };
 
 	//------------------------------------------------------------------------------------------------------------------------------
 	// PhysX Test Variables
@@ -217,4 +219,14 @@ public:
 	float								m_quadSize = 1.f;
 
 	Vec3								m_testDirection = Vec3(0.f, 0.f, 1.f);
+	Vec3								m_dynamicSpawnPos = Vec3(0.f, 40.f, 100.f);
+	Vec3								m_dynamicSpawnVelocity = Vec3(0.f, -40.f, -100.f);
+
+	//PhysX Meshes
+	GPUMesh*							m_pxCube = nullptr;
+	Matrix44							m_pxCubeTransform; // cube's model matrix
+
+	GPUMesh*							m_pxSphere = nullptr;
+	Matrix44							m_pxSphereTransform; // sphere's model matrix
+
 };
