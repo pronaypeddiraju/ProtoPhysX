@@ -890,7 +890,8 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 	//Look for maximum of 3 shapes to draw per actor
 	PxShape* shapes[3];
 
-	CPUMesh mesh;
+	int numBoxes = 0;
+	CPUMesh boxMesh;
 	CPUMesh sphereMesh;
 
 	for (int i = 0; i < numActors; i++)
@@ -911,14 +912,6 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 				PxBoxGeometry box;
 				shapes[j]->getBoxGeometry(box);
 				Vec3 halfExtents = g_PxPhysXSystem->PxVectorToVec(box.halfExtents);
-
-				CPUMeshAddCube(&mesh, AABB3(-1.f * halfExtents, halfExtents), color);
-
-				if (j == 0)
-				{
-					m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
-				}
-				
 				PxMat44 pxTransform = actors[i]->getGlobalPose();
 				PxVec3 pxPosition = pxTransform.getPosition();
 
@@ -928,8 +921,21 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
 				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
 
+				AABB3 boxShape = AABB3(-1.f * halfExtents, halfExtents);
+				boxShape.TransfromUsingMatrix(pose);
+
+				CPUMeshAddCube(&boxMesh, boxShape, color, false, numBoxes);
+				numBoxes++;
+				                
+				/*
+				if (j == 0)
+				{
+					m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&boxMesh, GPU_MEMORY_USAGE_STATIC);
+				}
+
 				g_renderContext->SetModelMatrix(pose);
 				g_renderContext->DrawMesh(m_pxCube);
+				*/
 			}
 			break;
 			case PxGeometryType::eSPHERE:
@@ -1081,6 +1087,12 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 
 		}
 	}
+
+	m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&boxMesh, GPU_MEMORY_USAGE_STATIC);
+
+	g_renderContext->SetModelMatrix(Matrix44::IDENTITY);
+	g_renderContext->DrawMesh(m_pxCube);
+
 }
 
 void Game::DebugRenderToScreen() const
@@ -1139,9 +1151,7 @@ void Game::PostRender()
 
 void Game::Update( float deltaTime )
 {
-	//UpdatePhysX(deltaTime);
-
-	UpdateLightPositions();
+	//UpdateLightPositions();
 
 	//Figure out update state for only move on alt + move
 	UpdateMouseInputs(deltaTime);
@@ -1159,19 +1169,6 @@ void Game::Update( float deltaTime )
 	CheckXboxInputs();
 	m_animTime += deltaTime;
 	float currentTime = static_cast<float>(GetCurrentTimeSeconds());
-
-	/*
-	DebugRenderOptionsT options;
-	const char* text = "Current Time %f";
-	
-	g_debugRenderer->DebugAddToLog(options, text, Rgba::YELLOW, 0.f, currentTime);
-
-	text = "Frame Rate %f";
-	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f, (1.f / deltaTime));
-	
-	text = "UP/DOWN to increase/decrease emissive factor";
-	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f);
-	*/
 
 	//Update the camera's transform
 	Matrix44 camTransform = Matrix44::MakeFromEuler( m_mainCamera->GetEuler(), m_rotationOrder ); 
@@ -1192,15 +1189,6 @@ void Game::Update( float deltaTime )
 	ClearGarbageEntities();	
 
 	UpdateImGUI();
-}
-
-//------------------------------------------------------------------------------------------------------------------------------
-void Game::UpdatePhysX(float deltaTime)
-{
-	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
-
-	pxScene->simulate(deltaTime * 2.f);
-	pxScene->fetchResults(true);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------

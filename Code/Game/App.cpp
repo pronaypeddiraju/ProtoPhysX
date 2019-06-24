@@ -167,16 +167,19 @@ void App::Update()
 	DebugRenderOptionsT options;
 	const char* text = "Current Time %f";
 
-	g_debugRenderer->DebugAddToLog(options, text, Rgba::YELLOW, 0.f, m_timeAtThisFrameBegin);
-
-	text = "Frame Rate %f";
-	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f, (1.f / (m_timeAtThisFrameBegin - m_timeAtLastFrameBegin)));
+	//g_debugRenderer->DebugAddToLog(options, text, Rgba::YELLOW, 0.f, m_timeAtThisFrameBegin);
 
 	float deltaTime = static_cast<float>(m_timeAtThisFrameBegin - m_timeAtLastFrameBegin);
 	deltaTime = Clamp(deltaTime, 0.0f, 0.1f);
 
 	//DEBUG
 	//deltaTime = 1.f / 60.f;
+
+	text = "Frame Rate %f";
+	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f, (1.f / deltaTime));
+
+	text = "Delta Time %f";
+	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f, deltaTime);
 
 	g_devConsole->UpdateConsole(deltaTime);
 	g_PxPhysXSystem->Update(deltaTime);

@@ -90,7 +90,6 @@ public:
 	void								DebugRenderToCamera() const;
 	void								PostRender();
 	void								Update( float deltaTime );
-	void								UpdatePhysX( float deltaTime );
 	void								UpdateImGUI();
 	void								UpdateImGUITestWidget();
 	void								UpdatePhysXWidget();
