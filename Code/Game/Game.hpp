@@ -87,7 +87,7 @@ public:
 	
 	void								RenderPhysXScene() const;
 	void								RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, const Rgba& color = Rgba::WHITE) const;
-	void								AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color, int& numBoxes) const;
+	void								AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
 	
 	void								RenderIsoSprite() const;
 	void								DebugRenderToScreen() const;

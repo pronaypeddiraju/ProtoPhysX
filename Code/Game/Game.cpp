@@ -890,7 +890,6 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 	//Look for maximum of 3 shapes to draw per actor
 	PxShape* shapes[3];
 
-	int numBoxes = 0;
 	CPUMesh boxMesh;
 	CPUMesh sphereMesh;
 
@@ -909,7 +908,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 			{
 			case PxGeometryType::eBOX:
 			{
-				AddMeshForPxCube(boxMesh, *actors[i], *shapes[j], color, numBoxes);
+				AddMeshForPxCube(boxMesh, *actors[i], *shapes[j], color);
 			}
 			break;
 			case PxGeometryType::eSPHERE:
@@ -939,45 +938,8 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 			break;
 			case PxGeometryType::eCONVEXMESH:
 			{
-				DebuggerPrintf("\n Convex Mesh Detected");
-
 				PxConvexMeshGeometry convexGeometry;
 				shapes[j]->getConvexMeshGeometry(convexGeometry);
-
-				/*
-				PxMat44 pxTransform = actors[i]->getGlobalPose();
-				PxVec3 pxPosition = pxTransform.getPosition();
-
-				//CPUMeshAddUVSphere(&sphereMesh, g_PxPhysXSystem->PxVectorToVec(pxPosition), radius, Rgba::YELLOW, 16, 8);
-				//m_pxSphere->CreateFromCPUMesh<Vertex_Lit>(&sphereMesh, GPU_MEMORY_USAGE_STATIC);
-
-				const PxVec3* pxVerts = convexGeometry.convexMesh->getVertices();
-				
-				int numVerts = convexGeometry.convexMesh->getNbVertices();				
-				CPUMesh cvxMesh;
-
-				int numIndices = convexGeometry.convexMesh->getNbPolygons();
-				const uint8_t* indices = convexGeometry.convexMesh->getIndexBuffer();
-				
-				for (int vertexIndex = 0; vertexIndex < numVerts; vertexIndex++)
-				{
-					cvxMesh.AddVertex(g_PxPhysXSystem->PxVectorToVec(pxVerts[vertexIndex]));
-				}
-
-				for (int indexIndex = 0; indexIndex < numIndices; indexIndex++)
-				{
-					cvxMesh.AddIndex(indices[indexIndex]);
-				}
-
-				m_pxConvexMesh->CreateFromCPUMesh<Vertex_Lit>(&cvxMesh, GPU_MEMORY_USAGE_STATIC);
-
-				Matrix44 position;
-				position.SetTranslation3D(g_PxPhysXSystem->PxVectorToVec(pxPosition), position);
-				position.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
-
-				g_renderContext->SetModelMatrix(position);
-				g_renderContext->DrawMesh(m_pxConvexMesh);
-				*/
 
 				//const Vec3& scale = g_PxPhysXSystem->PxVectorToVec(convexGeometry.scale.scale);
 				PxConvexMesh* pxCvxMesh = convexGeometry.convexMesh;
@@ -1070,7 +1032,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void Game::AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color, int& numBoxes) const
+void Game::AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const
 {
 	PxBoxGeometry box;
 	shape.getBoxGeometry(box);
@@ -1087,8 +1049,7 @@ void Game::AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const P
 	AABB3 boxShape = AABB3(-1.f * halfExtents, halfExtents);
 	boxShape.TransfromUsingMatrix(pose);
 
-	CPUMeshAddCube(&boxMesh, boxShape, color, false, numBoxes);
-	numBoxes++;
+	CPUMeshAddCube(&boxMesh, boxShape, color);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1366,6 +1327,7 @@ void Game::CreateInitialMeshes()
 	m_quad = new GPUMesh(g_renderContext);
 	m_quad->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
 
+	mesh.Clear();
 	// create a cube (centered at zero, with sides 1 length)
 	CPUMeshAddCube( &mesh, AABB3( Vec3(-0.5f, -0.5f, -0.5f), Vec3(0.5f, 0.5f, 0.5f)) ); 
 	
