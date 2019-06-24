@@ -9,6 +9,7 @@
 #include "Engine/Core/XMLUtils/XMLUtils.hpp"
 #include "Engine/Input/InputSystem.hpp"
 #include "Engine/Math/MathUtils.hpp"
+#include "Engine/Math/RandomNumberGenerator.hpp"
 #include "Engine/Renderer/DebugRender.hpp"
 #include "Engine/Renderer/RenderContext.hpp"
 #include "Engine/PhysXSystem/PhysXSystem.hpp"
@@ -82,6 +83,8 @@ void App::StartUp()
 
 	g_PxPhysXSystem = new PhysXSystem();
 
+	g_RNG = new RandomNumberGenerator(0);
+
 	m_game = new Game();
 	m_game->StartUp();
 	
@@ -113,6 +116,9 @@ void App::ShutDown()
 
 	delete g_debugRenderer;
 	g_debugRenderer = nullptr;
+
+	delete g_RNG;
+	g_RNG = nullptr;
 
 	m_game->Shutdown();
 }
@@ -158,11 +164,19 @@ void App::Update()
 	m_timeAtLastFrameBegin = m_timeAtThisFrameBegin;
 	m_timeAtThisFrameBegin = GetCurrentTimeSeconds();
 
+	DebugRenderOptionsT options;
+	const char* text = "Current Time %f";
+
+	g_debugRenderer->DebugAddToLog(options, text, Rgba::YELLOW, 0.f, m_timeAtThisFrameBegin);
+
+	text = "Frame Rate %f";
+	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f, (1.f / (m_timeAtThisFrameBegin - m_timeAtLastFrameBegin)));
+
 	float deltaTime = static_cast<float>(m_timeAtThisFrameBegin - m_timeAtLastFrameBegin);
 	deltaTime = Clamp(deltaTime, 0.0f, 0.1f);
 
 	//DEBUG
-	deltaTime = 1.f / 60.f;
+	//deltaTime = 1.f / 60.f;
 
 	g_devConsole->UpdateConsole(deltaTime);
 	g_PxPhysXSystem->Update(deltaTime);

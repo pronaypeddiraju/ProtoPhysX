@@ -31,7 +31,6 @@
 //------------------------------------------------------------------------------------------------------------------------------
 float g_shakeAmount = 0.0f;
 
-RandomNumberGenerator* g_randomNumGen;
 extern RenderContext* g_renderContext;
 extern AudioSystem* g_audio;
 bool g_debugMode = false;
@@ -89,6 +88,8 @@ void Game::StartUp()
 
 	SetupPhysX();
 
+	Vec3 camEuler = Vec3(-12.5f, -196.f, 0.f);
+	m_mainCamera->SetEuler(camEuler);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -318,6 +319,97 @@ void Game::SetupPhysX()
 	{
 		CreatePhysXStack(Vec3(0,0, stackZ -= 10.f), 10, 2.f);
 	}
+
+	CreatePhysXConvexHull();
+}
+
+void Game::CreatePhysXConvexHull()
+{
+	std::vector<Vec3> vertexArray;
+
+	const int numVerts = 64;
+
+	// Prepare random verts
+	for (PxU32 i = 0; i < numVerts; i++)
+	{
+		vertexArray.push_back(Vec3(g_RNG->GetRandomFloatInRange(-5.f, 5.f) , g_RNG->GetRandomFloatInRange(0.f, 5.f), g_RNG->GetRandomFloatInRange(-5.f, 5.f)));
+	}
+
+	CreateRandomConvexHull(vertexArray, 16, false);
+}
+
+void Game::CreateRandomConvexHull(std::vector<Vec3>& vertexArray, int gaussMapLimit, bool directInsertion)
+{
+	PxCooking* pxCookingModule = g_PxPhysXSystem->GetPhysXCookingModule();
+	PxPhysics* pxPhysics = g_PxPhysXSystem->GetPhysXSDK();
+	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
+	PxCookingParams params = pxCookingModule->getParams();
+
+	// Use the new (default) PxConvexMeshCookingType::eQUICKHULL
+	params.convexMeshCookingType = g_PxPhysXSystem->GetPxConvexMeshCookingType(QUICKHULL);
+
+	// If the gaussMapLimit is chosen higher than the number of output vertices, no gauss map is added to the convex mesh data (here 256).
+	// If the gaussMapLimit is chosen lower than the number of output vertices, a gauss map is added to the convex mesh data (here 16).
+	params.gaussMapLimit = gaussMapLimit;
+	pxCookingModule->setParams(params);
+
+	// Setup the convex mesh descriptor
+	PxConvexMeshDesc desc;
+	PxConvexMesh* pxConvexMesh;
+
+	std::vector<PxVec3> pxVecArray;
+	pxVecArray.reserve(vertexArray.size());
+
+	int numVerts = (int)vertexArray.size();
+	for (int vecIndex = 0; vecIndex < numVerts; vecIndex++)
+	{
+		pxVecArray.push_back(g_PxPhysXSystem->VecToPxVector(vertexArray[vecIndex]));
+	}
+
+	// We provide points only, therefore the PxConvexFlag::eCOMPUTE_CONVEX flag must be specified
+	desc.points.data = &pxVecArray[0];
+	desc.points.count = numVerts;
+	desc.points.stride = sizeof(PxVec3);
+	desc.flags = PxConvexFlag::eCOMPUTE_CONVEX;
+
+	PxU32 meshSize = 0;
+
+	if (directInsertion)
+	{
+		// Directly insert mesh into PhysX
+		pxConvexMesh = pxCookingModule->createConvexMesh(desc, pxPhysics->getPhysicsInsertionCallback());
+		PX_ASSERT(convex);
+	}
+	else
+	{
+		// Serialize the cooked mesh into a stream.
+		PxFoundation* pxFoundation = g_PxPhysXSystem->GetPhysXFoundationModule();
+		PxDefaultMemoryOutputStream outStream(pxFoundation->getAllocatorCallback());
+		bool res = pxCookingModule->cookConvexMesh(desc, outStream);
+		PX_UNUSED(res);
+		PX_ASSERT(res);
+		meshSize = outStream.getSize();
+
+		// Create the mesh from a stream.
+		PxDefaultMemoryInputData inStream(outStream.getData(), outStream.getSize());
+		pxConvexMesh = pxPhysics->createConvexMesh(inStream);
+
+		//Make the geometru
+		PxConvexMeshGeometry geometry = PxConvexMeshGeometry(pxConvexMesh);
+		const PxMaterial* material = g_PxPhysXSystem->GetDefaultPxMaterial();
+
+		PxShape* shape = pxPhysics->createShape(geometry, *material);
+
+		PxTransform localTm(PxVec3(0, 50.f, 0));
+		PxRigidDynamic* body = pxPhysics->createRigidDynamic(localTm);
+		body->attachShape(*shape);
+		PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
+		pxScene->addActor(*body);
+
+		PX_ASSERT(convex);
+	}
+
+	pxConvexMesh->release();
 }
 
 void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
@@ -485,7 +577,11 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 		case LEFT_ARROW:
 		case SPACE_KEY:
 		{
-			g_PxPhysXSystem->CreateDynamicObject(PxSphereGeometry(3.f), m_dynamicSpawnVelocity, m_dynamicSpawnPos);
+			Vec3 velocity;// = m_mainCamera->GetModelMatrix().GetKVector();
+			
+			velocity = m_mainCamera->GetCameraForward() * 100.f;
+
+			g_PxPhysXSystem->CreateDynamicObject(PxSphereGeometry(3.f), velocity, m_mainCamera->GetModelMatrix());
 		}
 		break;
 		case N_KEY:
@@ -615,6 +711,8 @@ void Game::Shutdown()
 	delete m_pxSphere;
 	m_pxSphere = nullptr;
 
+	delete m_pxConvexMesh;
+	m_pxConvexMesh = nullptr;
 	//FreeResources();
 }
 
@@ -815,7 +913,11 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 				Vec3 halfExtents = g_PxPhysXSystem->PxVectorToVec(box.halfExtents);
 
 				CPUMeshAddCube(&mesh, AABB3(-1.f * halfExtents, halfExtents), color);
-				m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
+
+				if (j == 0)
+				{
+					m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
+				}
 				
 				PxMat44 pxTransform = actors[i]->getGlobalPose();
 				PxVec3 pxPosition = pxTransform.getPosition();
@@ -826,12 +928,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
 				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
 
-				Matrix44 position;
-				position.SetTranslation3D(g_PxPhysXSystem->PxVectorToVec(pxPosition), position);
-				position.SetRotationFromMatrix(position, pose);
-				
-
-				g_renderContext->SetModelMatrix(position);
+				g_renderContext->SetModelMatrix(pose);
 				g_renderContext->DrawMesh(m_pxCube);
 			}
 			break;
@@ -844,23 +941,138 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 				PxVec3 pxPosition = pxTransform.getPosition();
 
 				float radius = sphere.radius;
-				CPUMeshAddUVSphere(&sphereMesh, g_PxPhysXSystem->PxVectorToVec(pxPosition), radius, Rgba::YELLOW);
+				CPUMeshAddUVSphere(&sphereMesh, Vec3::ZERO, radius, Rgba::WHITE, 16, 8);
 				m_pxSphere->CreateFromCPUMesh<Vertex_Lit>(&sphereMesh, GPU_MEMORY_USAGE_STATIC);
 
-				/*
 				Matrix44 pose;
 				pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
 				pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
 				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
 				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
-				*/
+
+				g_renderContext->SetModelMatrix(pose);
+				g_renderContext->BindShader(m_shader);
+				g_renderContext->BindTextureViewWithSampler(0U, m_sphereTexture);
+				g_renderContext->DrawMesh(m_pxSphere);
+				g_renderContext->BindMaterial(m_defaultMaterial);
+			}
+			break;
+			case PxGeometryType::eCONVEXMESH:
+			{
+				DebuggerPrintf("\n Convex Mesh Detected");
+
+				PxConvexMeshGeometry convexGeometry;
+				shapes[j]->getConvexMeshGeometry(convexGeometry);
+
+				/*
+				PxMat44 pxTransform = actors[i]->getGlobalPose();
+				PxVec3 pxPosition = pxTransform.getPosition();
+
+				//CPUMeshAddUVSphere(&sphereMesh, g_PxPhysXSystem->PxVectorToVec(pxPosition), radius, Rgba::YELLOW, 16, 8);
+				//m_pxSphere->CreateFromCPUMesh<Vertex_Lit>(&sphereMesh, GPU_MEMORY_USAGE_STATIC);
+
+				const PxVec3* pxVerts = convexGeometry.convexMesh->getVertices();
+				
+				int numVerts = convexGeometry.convexMesh->getNbVertices();				
+				CPUMesh cvxMesh;
+
+				int numIndices = convexGeometry.convexMesh->getNbPolygons();
+				const uint8_t* indices = convexGeometry.convexMesh->getIndexBuffer();
+				
+				for (int vertexIndex = 0; vertexIndex < numVerts; vertexIndex++)
+				{
+					cvxMesh.AddVertex(g_PxPhysXSystem->PxVectorToVec(pxVerts[vertexIndex]));
+				}
+
+				for (int indexIndex = 0; indexIndex < numIndices; indexIndex++)
+				{
+					cvxMesh.AddIndex(indices[indexIndex]);
+				}
+
+				m_pxConvexMesh->CreateFromCPUMesh<Vertex_Lit>(&cvxMesh, GPU_MEMORY_USAGE_STATIC);
 
 				Matrix44 position;
 				position.SetTranslation3D(g_PxPhysXSystem->PxVectorToVec(pxPosition), position);
 				position.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
 
 				g_renderContext->SetModelMatrix(position);
-				g_renderContext->DrawMesh(m_pxSphere);
+				g_renderContext->DrawMesh(m_pxConvexMesh);
+				*/
+
+				//const Vec3& scale = g_PxPhysXSystem->PxVectorToVec(convexGeometry.scale.scale);
+				PxConvexMesh* pxCvxMesh = convexGeometry.convexMesh;
+				const int nbPolys = pxCvxMesh->getNbPolygons();
+				const uint8_t* polygons = pxCvxMesh->getIndexBuffer();
+				const PxVec3* verts = pxCvxMesh->getVertices();
+				int nbVerts = pxCvxMesh->getNbVertices();
+				PX_UNUSED(nbVerts);
+
+				CPUMesh cvxMesh;
+
+				int numTotalTriangles = 0;
+				for (int index = 0; index < nbPolys; index++)
+				{
+					PxHullPolygon data;
+					pxCvxMesh->getPolygonData(index, data);
+
+					const int nbTris = PxU32(data.mNbVerts - 2);
+					const int vref0 = polygons[data.mIndexBase + 0];
+					PX_ASSERT(vref0 < nbVerts);
+					for (int jIndex = 0; jIndex < nbTris; jIndex++)
+					{
+						const int vref1 = polygons[data.mIndexBase + 0 + jIndex + 1];
+						const int vref2 = polygons[data.mIndexBase + 0 + jIndex + 2];
+
+						//generate face normal:
+						PxVec3 e0 = verts[vref1] - verts[vref0];
+						PxVec3 e1 = verts[vref2] - verts[vref0];
+
+						PX_ASSERT(vref1 < nbVerts);
+						PX_ASSERT(vref2 < nbVerts);
+
+						PxVec3 fnormal = e0.cross(e1);
+						fnormal.normalize();
+						//fnormal *= -1.f;
+
+						VertexMaster vert;
+						vert.m_color = Rgba::MAGENTA;
+						if (numTotalTriangles * 6 < 1024)
+						{
+							vert.m_position = g_PxPhysXSystem->PxVectorToVec(verts[vref0]);
+							vert.m_normal = g_PxPhysXSystem->PxVectorToVec(fnormal);
+							cvxMesh.AddVertex(vert);
+
+							vert.m_position = g_PxPhysXSystem->PxVectorToVec(verts[vref2]);
+							cvxMesh.AddVertex(vert);
+
+							vert.m_position = g_PxPhysXSystem->PxVectorToVec(verts[vref1]);
+							cvxMesh.AddVertex(vert);
+							
+							numTotalTriangles++;
+						}
+					}
+				}
+
+				int vertCount = cvxMesh.GetVertexCount();
+				for (int indexIndex = 0; indexIndex < vertCount; indexIndex++)
+				{
+					cvxMesh.AddIndex(indexIndex);
+				}
+
+				m_pxConvexMesh->CreateFromCPUMesh<Vertex_Lit>(&cvxMesh, GPU_MEMORY_USAGE_STATIC);
+
+				PxMat44 pxTransform = actors[i]->getGlobalPose();
+				PxVec3 pxPosition = pxTransform.getPosition();
+
+				Matrix44 pose;
+				pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+				pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+
+				g_renderContext->SetModelMatrix(pose);
+				g_renderContext->DrawMesh(m_pxConvexMesh);
+
 			}
 			break;
 			default:
@@ -946,9 +1158,10 @@ void Game::Update( float deltaTime )
 
 	CheckXboxInputs();
 	m_animTime += deltaTime;
-
-	DebugRenderOptionsT options;
 	float currentTime = static_cast<float>(GetCurrentTimeSeconds());
+
+	/*
+	DebugRenderOptionsT options;
 	const char* text = "Current Time %f";
 	
 	g_debugRenderer->DebugAddToLog(options, text, Rgba::YELLOW, 0.f, currentTime);
@@ -958,6 +1171,7 @@ void Game::Update( float deltaTime )
 	
 	text = "UP/DOWN to increase/decrease emissive factor";
 	g_debugRenderer->DebugAddToLog(options, text, Rgba::WHITE, 0.f);
+	*/
 
 	//Update the camera's transform
 	Matrix44 camTransform = Matrix44::MakeFromEuler( m_mainCamera->GetEuler(), m_rotationOrder ); 
@@ -1018,9 +1232,15 @@ void Game::UpdateImGUITestWidget()
 	ui_dynamicSpawnPos[1] = m_dynamicSpawnPos.y;
 	ui_dynamicSpawnPos[2] = m_dynamicSpawnPos.z;
 
-	ui_dynamicVelocity[0] = m_dynamicSpawnVelocity.x;
-	ui_dynamicVelocity[1] = m_dynamicSpawnVelocity.y;
-	ui_dynamicVelocity[2] = m_dynamicSpawnVelocity.z;
+	ui_dynamicVelocity[0] = m_dynamicDropVelocity.x;
+	ui_dynamicVelocity[1] = m_dynamicDropVelocity.y;
+	ui_dynamicVelocity[2] = m_dynamicDropVelocity.z;
+
+	Vec3 cameraAngle = m_mainCamera->GetEuler();
+	float cameraAngleFloat[3];
+	cameraAngleFloat[0] = cameraAngle.x;
+	cameraAngleFloat[1] = cameraAngle.y;
+	cameraAngleFloat[2] = cameraAngle.z;
 
 	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
@@ -1031,6 +1251,7 @@ void Game::UpdateImGUITestWidget()
 	ImGui::SliderFloat("float", &ui_testSlider, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
 	ImGui::ColorEdit3("clear color", (float*)&ui_testColor); // Edit 3 floats representing a color
 	ImGui::DragFloat3("Camera Position", ui_camPosition);
+	ImGui::DragFloat3("Camera Angle", cameraAngleFloat);
 	ImGui::DragFloat3("Light Direction", ui_dirLight);
 	ImGui::DragFloat3("Dynamic Spawn Position", ui_dynamicSpawnPos);
 	ImGui::DragFloat3("Dynamic Spawn velocity", ui_dynamicVelocity);
@@ -1050,9 +1271,9 @@ void Game::UpdateImGUITestWidget()
 	m_dynamicSpawnPos.y = ui_dynamicSpawnPos[1];
 	m_dynamicSpawnPos.z = ui_dynamicSpawnPos[2];
 
-	m_dynamicSpawnVelocity.x = ui_dynamicVelocity[0];
-	m_dynamicSpawnVelocity.y = ui_dynamicVelocity[1];
-	m_dynamicSpawnVelocity.z = ui_dynamicVelocity[2];
+	m_dynamicDropVelocity.x = ui_dynamicVelocity[0];
+	m_dynamicDropVelocity.y = ui_dynamicVelocity[1];
+	m_dynamicDropVelocity.z = ui_dynamicVelocity[2];
 
 	m_directionalLightPos.Normalize();
 }
@@ -1246,7 +1467,7 @@ void Game::CreateInitialMeshes()
 
 	m_baseQuadTransform = Matrix44::IDENTITY;
 	m_baseQuadTransform = Matrix44::MakeFromEuler(Vec3(-90.f, 0.f, 0.f));
-	m_baseQuadTransform = Matrix44::SetTranslation3D(Vec3(0.f, -1.f, 0.f), m_baseQuadTransform);
+	m_baseQuadTransform = Matrix44::SetTranslation3D(Vec3(0.f, 0.f, 0.f), m_baseQuadTransform);
 
 	mesh.Clear();
 	CPUMeshAddUVCapsule(&mesh, Vec3(0.f, 1.f, 1.f), Vec3(0.f, -1.f, 1.f), 2.f, Rgba::YELLOW);
@@ -1259,6 +1480,7 @@ void Game::CreateInitialMeshes()
 
 	m_pxCube = new GPUMesh(g_renderContext);
 	m_pxSphere = new GPUMesh(g_renderContext);
+	m_pxConvexMesh = new GPUMesh(g_renderContext);
 }
 
 void Game::LoadGameTextures()

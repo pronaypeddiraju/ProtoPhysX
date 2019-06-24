@@ -59,6 +59,8 @@ public:
 	void								SetStartupDebugRenderObjects();
 	void								SetupPhysX();
 
+	void								CreatePhysXConvexHull();
+	void								CreateRandomConvexHull(std::vector<Vec3>& vertexArray, int gaussMapLimit, bool directInsertion);
 	void								CreatePhysXStack(const Vec3& position, uint size, float halfExtent);
 	PxRigidDynamic*						CreateDynamicObject(const PxGeometry& pxGeometry, const Vec3& velocity);
 
@@ -202,7 +204,13 @@ public:
 	//------------------------------------------------------------------------------------------------------------------------------
 
 	float								stackZ = 10.0f;
+	PxRigidActor*						m_pxConvexActor = nullptr;
+	PxMaterial*							m_pxConvexMaterial = nullptr;
 
+	//PhysX Meshes
+	GPUMesh*							m_pxCube = nullptr;
+	GPUMesh*							m_pxSphere = nullptr;
+	GPUMesh*							m_pxConvexMesh = nullptr;
 
 	//------------------------------------------------------------------------------------------------------------------------------
 	// Iso Sprite Test Variables
@@ -220,13 +228,6 @@ public:
 
 	Vec3								m_testDirection = Vec3(0.f, 0.f, 1.f);
 	Vec3								m_dynamicSpawnPos = Vec3(0.f, 40.f, 100.f);
-	Vec3								m_dynamicSpawnVelocity = Vec3(0.f, -40.f, -100.f);
-
-	//PhysX Meshes
-	GPUMesh*							m_pxCube = nullptr;
-	Matrix44							m_pxCubeTransform; // cube's model matrix
-
-	GPUMesh*							m_pxSphere = nullptr;
-	Matrix44							m_pxSphereTransform; // sphere's model matrix
+	Vec3								m_dynamicDropVelocity = Vec3(0.f, -40.f, 100.f);
 
 };
