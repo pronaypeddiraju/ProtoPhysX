@@ -913,27 +913,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 			break;
 			case PxGeometryType::eSPHERE:
 			{
-				PxSphereGeometry sphere;
-				shapes[j]->getSphereGeometry(sphere);
-
-				PxMat44 pxTransform = actors[i]->getGlobalPose();
-				PxVec3 pxPosition = pxTransform.getPosition();
-
-				float radius = sphere.radius;
-				CPUMeshAddUVSphere(&sphereMesh, Vec3::ZERO, radius, Rgba::WHITE, 16, 8);
-				m_pxSphere->CreateFromCPUMesh<Vertex_Lit>(&sphereMesh, GPU_MEMORY_USAGE_STATIC);
-
-				Matrix44 pose;
-				pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
-				pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
-				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
-				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
-
-				g_renderContext->SetModelMatrix(pose);
-				g_renderContext->BindShader(m_shader);
-				g_renderContext->BindTextureViewWithSampler(0U, m_sphereTexture);
-				g_renderContext->DrawMesh(m_pxSphere);
-				g_renderContext->BindMaterial(m_defaultMaterial);
+				AddMeshForPxSphere(sphereMesh, *actors[i], *shapes[j], Rgba::WHITE);
 			}
 			break;
 			case PxGeometryType::eCONVEXMESH:
@@ -1024,11 +1004,22 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 		}
 	}
 
-	m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&boxMesh, GPU_MEMORY_USAGE_STATIC);
-
 	g_renderContext->SetModelMatrix(Matrix44::IDENTITY);
-	g_renderContext->DrawMesh(m_pxCube);
+	
+	if (boxMesh.GetVertexCount() > 0)
+	{
+		m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&boxMesh, GPU_MEMORY_USAGE_STATIC);
+		g_renderContext->DrawMesh(m_pxCube);
+	}
 
+	if (sphereMesh.GetVertexCount() > 0)
+	{
+		m_pxSphere->CreateFromCPUMesh<Vertex_Lit>(&sphereMesh, GPU_MEMORY_USAGE_STATIC);
+
+		g_renderContext->BindShader(m_shader);
+		g_renderContext->BindTextureViewWithSampler(0U, m_sphereTexture);
+		g_renderContext->DrawMesh(m_pxSphere);
+	}
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1050,6 +1041,30 @@ void Game::AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const P
 	boxShape.TransfromUsingMatrix(pose);
 
 	CPUMeshAddCube(&boxMesh, boxShape, color);
+}
+
+void Game::AddMeshForPxSphere(CPUMesh& sphereMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const
+{
+	PxSphereGeometry sphere;
+	shape.getSphereGeometry(sphere);
+
+	PxMat44 pxTransform = actor.getGlobalPose();
+	PxVec3 pxPosition = pxTransform.getPosition();
+
+	float radius = sphere.radius;
+
+	Matrix44 pose;
+	pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+
+	CPUMeshAddUVSphere(&sphereMesh, Vec3::ZERO, radius, color, 16, 8);
+
+	int numVerts = sphereMesh.GetVertexCount();
+	int limit = numVerts - ((16 + 1) * (8 + 1));
+
+	sphereMesh.TransformVerticesInRange(limit, numVerts, pose);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
