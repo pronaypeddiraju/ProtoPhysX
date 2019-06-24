@@ -909,33 +909,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 			{
 			case PxGeometryType::eBOX:
 			{
-				PxBoxGeometry box;
-				shapes[j]->getBoxGeometry(box);
-				Vec3 halfExtents = g_PxPhysXSystem->PxVectorToVec(box.halfExtents);
-				PxMat44 pxTransform = actors[i]->getGlobalPose();
-				PxVec3 pxPosition = pxTransform.getPosition();
-
-				Matrix44 pose;
-				pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
-				pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
-				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
-				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
-
-				AABB3 boxShape = AABB3(-1.f * halfExtents, halfExtents);
-				boxShape.TransfromUsingMatrix(pose);
-
-				CPUMeshAddCube(&boxMesh, boxShape, color, false, numBoxes);
-				numBoxes++;
-				                
-				/*
-				if (j == 0)
-				{
-					m_pxCube->CreateFromCPUMesh<Vertex_Lit>(&boxMesh, GPU_MEMORY_USAGE_STATIC);
-				}
-
-				g_renderContext->SetModelMatrix(pose);
-				g_renderContext->DrawMesh(m_pxCube);
-				*/
+				AddMeshForPxCube(boxMesh, *actors[i], *shapes[j], color, numBoxes);
 			}
 			break;
 			case PxGeometryType::eSPHERE:
@@ -1095,6 +1069,29 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color, int& numBoxes) const
+{
+	PxBoxGeometry box;
+	shape.getBoxGeometry(box);
+	Vec3 halfExtents = g_PxPhysXSystem->PxVectorToVec(box.halfExtents);
+	PxMat44 pxTransform = actor.getGlobalPose();
+	PxVec3 pxPosition = pxTransform.getPosition();
+
+	Matrix44 pose;
+	pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+
+	AABB3 boxShape = AABB3(-1.f * halfExtents, halfExtents);
+	boxShape.TransfromUsingMatrix(pose);
+
+	CPUMeshAddCube(&boxMesh, boxShape, color, false, numBoxes);
+	numBoxes++;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::DebugRenderToScreen() const
 {
 	Camera& debugCamera = g_debugRenderer->Get2DCamera();
@@ -1109,6 +1106,7 @@ void Game::DebugRenderToScreen() const
 	
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::DebugRenderToCamera() const
 {
 	Camera& debugCamera3D = *m_mainCamera;
@@ -1124,6 +1122,7 @@ void Game::DebugRenderToCamera() const
 	g_renderContext->EndCamera();
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::PostRender()
 {
 	//Debug bools
@@ -1149,11 +1148,9 @@ void Game::PostRender()
 	g_ImGUI->Render();
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::Update( float deltaTime )
 {
-	//UpdateLightPositions();
-
-	//Figure out update state for only move on alt + move
 	UpdateMouseInputs(deltaTime);
 
 	g_ImGUI->BeginFrame();
@@ -1166,7 +1163,6 @@ void Game::Update( float deltaTime )
 
 	g_renderContext->m_frameCount++;
 
-	CheckXboxInputs();
 	m_animTime += deltaTime;
 	float currentTime = static_cast<float>(GetCurrentTimeSeconds());
 
@@ -1184,10 +1180,6 @@ void Game::Update( float deltaTime )
 
 	m_testDirection = m_testDirection.GetRotatedAboutYDegrees(currentTime * ui_testSlider);
 
-	CheckCollisions();
-
-	ClearGarbageEntities();	
-
 	UpdateImGUI();
 }
 
@@ -1197,7 +1189,6 @@ void Game::UpdateImGUI()
 	ImGui::NewFrame();
 
 	UpdateImGUITestWidget();
-	//UpdatePhysXWidget();
 
 	ImGui::End();
 }
@@ -1267,67 +1258,20 @@ void Game::UpdateImGUITestWidget()
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void Game::UpdatePhysXWidget()
-{
-	//Add code for your PhysX widget here
-}
-
-//Use this chunk of code only for screen shake!
-/*
-void Game::UpdateCamera(float deltaTime)
-{
-	g_mainCamera = new Camera();
-	Vec2 orthoBottomLeft = Vec2(0.f,0.f);
-	Vec2 orthoTopRight = Vec2(WORLD_WIDTH, WORLD_HEIGHT);
-	g_mainCamera->SetOrthoView(orthoBottomLeft, orthoTopRight);
-
-	float shakeX = 0.f;
-	float shakeY = 0.f;
-
-	if(g_shakeAmount > 0)
-	{
-		shakeX = g_randomNumGen->GetRandomFloatInRange(-g_shakeAmount, g_shakeAmount);
-		shakeY = g_randomNumGen->GetRandomFloatInRange(-g_shakeAmount, g_shakeAmount);
-
-		g_shakeAmount -= deltaTime * CAMERA_SHAKE_REDUCTION_PER_SECOND;
-	}
-	else
-	{
-		g_shakeAmount = 0;
-	}
-
-	Vec2 translate2D = Vec2(shakeX, shakeY);
-	translate2D.ClampLength(MAX_SHAKE);
-	g_mainCamera->Translate2D(translate2D);
-}
-*/
-
-void Game::ClearGarbageEntities()
-{
-}
-
-void Game::CheckXboxInputs()
-{
-	//XboxController playerController = g_inputSystem->GetXboxController(0);
-}
-
-void Game::CheckCollisions()
-{		
-}
-
-
 bool Game::IsAlive()
 {
 	//Check if alive
 	return m_isGameAlive;
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::LoadGameMaterials()
 {
 	m_testMaterial = g_renderContext->CreateOrGetMaterialFromFile(m_materialPath);
 	m_defaultMaterial = g_renderContext->CreateOrGetMaterialFromFile(m_defaultMaterialPath);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdateLightPositions()
 {
 	g_renderContext->EnableDirectionalLight(Vec3::ZERO, m_directionalLightPos);
@@ -1374,6 +1318,7 @@ void Game::UpdateLightPositions()
 	g_debugRenderer->DebugRenderPoint(options, m_dynamicLight3Pos, 0.1f, 0.1f, nullptr);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::RenderIsoSprite() const
 {
 	Vec2 right = Vec2(1.f, 0.f);
@@ -1384,16 +1329,6 @@ void Game::RenderIsoSprite() const
 
 	AABB2 box = AABB2(mins, maxs);
 
-	//SpriteDefenition def = m_isoSprite->GetSpriteForLocalDirection(m_testDirection);
-
-	//Vec2 spriteMins;
-	//Vec2 spriteMaxs;
-	/*def->GetUVs(spriteMins, spriteMaxs);*/
-
-	//g_renderContext->BindMaterial(m_testMaterial);
-// 	spriteMins.y = 1 - spriteMins.y;
-// 	spriteMaxs.y = 1 - spriteMaxs.y;
-	
 	CPUMesh mesh;
 	CPUMeshAddQuad(&mesh, AABB2(Vec2(-0.5f, -0.5f), Vec2(0.5f, 0.5f)), Rgba::WHITE);
 	m_quad->CreateFromCPUMesh<Vertex_Lit>(&mesh, GPU_MEMORY_USAGE_STATIC);
@@ -1409,6 +1344,7 @@ void Game::RenderIsoSprite() const
 	g_renderContext->BindTextureView(0U, nullptr);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::CreateInitialLight()
 {
 	m_directionalLightPos = Vec3(-1.f, -1.f, -1.f).GetNormalized();
@@ -1420,6 +1356,7 @@ void Game::CreateInitialLight()
 	EnablePointLight(4U, m_dynamicLight3Pos, Vec3(-1.f, -1.f, 0.f), Rgba::MAGENTA, 1.f, Vec3(0.f, 0.f, 1.f), Vec3(0.f, 0.f, 1.f));
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::CreateInitialMeshes()
 {
 
@@ -1432,7 +1369,6 @@ void Game::CreateInitialMeshes()
 	// create a cube (centered at zero, with sides 1 length)
 	CPUMeshAddCube( &mesh, AABB3( Vec3(-0.5f, -0.5f, -0.5f), Vec3(0.5f, 0.5f, 0.5f)) ); 
 	
-	//mesh.SetLayout<Vertex_Lit>();
 	m_cube = new GPUMesh( g_renderContext ); 
 	m_cube->CreateFromCPUMesh<Vertex_Lit>( &mesh, GPU_MEMORY_USAGE_STATIC );
 
@@ -1471,6 +1407,7 @@ void Game::CreateInitialMeshes()
 	m_pxConvexMesh = new GPUMesh(g_renderContext);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::LoadGameTextures()
 {
 	//Get the test texture
@@ -1485,6 +1422,7 @@ void Game::LoadGameTextures()
 	CreateIsoSpriteDefenitions();
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::CreateIsoSpriteDefenitions()
 {	
 	std::vector<SpriteDefenition> spriteDefs;
@@ -1519,6 +1457,7 @@ void Game::CreateIsoSpriteDefenitions()
 //	m_isoSprite = new IsoSpriteDefenition(&spriteDefs[0], &directions[0], 7);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::GetandSetShaders()
 {
 	//Get the Shader
@@ -1532,6 +1471,7 @@ void Game::GetandSetShaders()
 	m_defaultLit->SetDepth(eCompareOp::COMPARE_LEQUAL, true);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdateMouseInputs(float deltaTime)
 {
 	//Get pitch and yaw from mouse
@@ -1567,6 +1507,4 @@ void Game::UpdateMouseInputs(float deltaTime)
 	//Test implementation
 	//m_camEuler.y -= static_cast<float>(mouseRelativePos.x);
 	//m_camEuler.x -= static_cast<float>(mouseRelativePos.y);
-
-
 }

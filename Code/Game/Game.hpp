@@ -28,6 +28,7 @@ class TextureView;
 class Image;
 class Shader;
 class SpriteAnimDefenition;
+class CPUMesh;
 class GPUMesh;
 
 struct Camera;
@@ -83,23 +84,23 @@ public:
 
 	void								Render() const;
 	void								RenderUsingMaterial() const;
+	
 	void								RenderPhysXScene() const;
 	void								RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, const Rgba& color = Rgba::WHITE) const;
+	void								AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color, int& numBoxes) const;
+	
 	void								RenderIsoSprite() const;
 	void								DebugRenderToScreen() const;
 	void								DebugRenderToCamera() const;
+	
 	void								PostRender();
+	
 	void								Update( float deltaTime );
 	void								UpdateImGUI();
 	void								UpdateImGUITestWidget();
-	void								UpdatePhysXWidget();
 	void								UpdateMouseInputs(float deltaTime);
 	void								UpdateLightPositions();
-	void								UpdateCamera(float deltaTime);
-	void								ClearGarbageEntities();
-	void								CheckXboxInputs();
-	void								CheckCollisions();
-
+	
 	bool								IsAlive();
 private:
 	bool								m_isGameAlive = false;
