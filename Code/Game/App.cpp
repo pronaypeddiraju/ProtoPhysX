@@ -79,9 +79,9 @@ void App::StartUp()
 	g_debugRenderer = new DebugRender();
 	g_debugRenderer->Startup(g_renderContext);
 
-	g_ImGUI = new ImGUISystem(g_renderContext);
-
 	g_PxPhysXSystem = new PhysXSystem();
+
+	g_ImGUI = new ImGUISystem(g_renderContext);
 
 	g_RNG = new RandomNumberGenerator(0);
 

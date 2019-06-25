@@ -61,23 +61,11 @@ public:
 	void								SetupPhysX();
 
 	void								CreatePhysXConvexHull();
-	void								CreateRandomConvexHull(std::vector<Vec3>& vertexArray, int gaussMapLimit, bool directInsertion);
 	void								CreatePhysXStack(const Vec3& position, uint size, float halfExtent);
-	PxRigidDynamic*						CreateDynamicObject(const PxGeometry& pxGeometry, const Vec3& velocity);
 
 	void								HandleKeyPressed(unsigned char keyCode);
 	void								HandleKeyReleased( unsigned char keyCode );
 	void								HandleCharacter( unsigned char charCode );
-
-	void								EnablePointLight( uint slot, const Vec3& position, const Vec3& direction,
-															const Rgba& color = Rgba::WHITE, float intensity = 1.f,
-															const Vec3& diffuseAttenuation = Vec3(1.f, 0.f, 0.f),
-															const Vec3& specularAttenuation = Vec3(1.f, 0.f, 0.f)) const;
-	
-	void								EnableDirectionalLight( const Vec3& position, const Vec3& direction,
-															const Rgba& color = Rgba::WHITE, float intensity = 1.f,
-															const Vec3& diffuseAttenuation = Vec3(1.f, 0.f, 0.f),
-															const Vec3& specularAttenuation = Vec3(1.f, 0.f, 0.f)) const;
 
 	void								DebugEnabled();
 	void								Shutdown();
@@ -86,9 +74,11 @@ public:
 	void								RenderUsingMaterial() const;
 	
 	void								RenderPhysXScene() const;
-	void								RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, const Rgba& color = Rgba::WHITE) const;
+	void								RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, Rgba& color) const;
+	Rgba								GetColorForGeometry(int type, bool isSleeping) const;
 	void								AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
 	void								AddMeshForPxSphere(CPUMesh& sphereMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
+	void								AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
 	
 	void								RenderIsoSprite() const;
 	void								DebugRenderToScreen() const;
@@ -204,7 +194,7 @@ public:
 	// PhysX Test Variables
 	//------------------------------------------------------------------------------------------------------------------------------
 
-	float								stackZ = 10.0f;
+	float								m_anotherTestTempHackStackZ = 10.0f;
 	PxRigidActor*						m_pxConvexActor = nullptr;
 	PxMaterial*							m_pxConvexMaterial = nullptr;
 

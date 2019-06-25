@@ -95,11 +95,11 @@ void Game::StartUp()
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::SetupMouseData()
 {
-	//IntVec2 clientCenter = g_windowContext->GetClientCenter();
-	//g_windowContext->SetClientMousePosition(clientCenter);
+	IntVec2 clientCenter = g_windowContext->GetClientCenter();
+	g_windowContext->SetClientMousePosition(clientCenter);
 
-	g_windowContext->SetMouseMode(MOUSE_MODE_ABSOLUTE);
-	//g_windowContext->HideMouse();
+	g_windowContext->SetMouseMode(MOUSE_MODE_RELATIVE);
+	g_windowContext->HideMouse();
 }
 
 void Game::SetupCameras()
@@ -317,7 +317,7 @@ void Game::SetupPhysX()
 	pxScene->addActor(*groundPlane);
 	for (PxU32 i = 0; i < 5; i++)
 	{
-		CreatePhysXStack(Vec3(0,0, stackZ -= 10.f), 10, 2.f);
+		CreatePhysXStack(Vec3(0,0, m_anotherTestTempHackStackZ -= 10.f), 10, 2.f);
 	}
 
 	CreatePhysXConvexHull();
@@ -335,81 +335,7 @@ void Game::CreatePhysXConvexHull()
 		vertexArray.push_back(Vec3(g_RNG->GetRandomFloatInRange(-5.f, 5.f) , g_RNG->GetRandomFloatInRange(0.f, 5.f), g_RNG->GetRandomFloatInRange(-5.f, 5.f)));
 	}
 
-	CreateRandomConvexHull(vertexArray, 16, false);
-}
-
-void Game::CreateRandomConvexHull(std::vector<Vec3>& vertexArray, int gaussMapLimit, bool directInsertion)
-{
-	PxCooking* pxCookingModule = g_PxPhysXSystem->GetPhysXCookingModule();
-	PxPhysics* pxPhysics = g_PxPhysXSystem->GetPhysXSDK();
-	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
-	PxCookingParams params = pxCookingModule->getParams();
-
-	// Use the new (default) PxConvexMeshCookingType::eQUICKHULL
-	params.convexMeshCookingType = g_PxPhysXSystem->GetPxConvexMeshCookingType(QUICKHULL);
-
-	// If the gaussMapLimit is chosen higher than the number of output vertices, no gauss map is added to the convex mesh data (here 256).
-	// If the gaussMapLimit is chosen lower than the number of output vertices, a gauss map is added to the convex mesh data (here 16).
-	params.gaussMapLimit = gaussMapLimit;
-	pxCookingModule->setParams(params);
-
-	// Setup the convex mesh descriptor
-	PxConvexMeshDesc desc;
-	PxConvexMesh* pxConvexMesh;
-
-	std::vector<PxVec3> pxVecArray;
-	pxVecArray.reserve(vertexArray.size());
-
-	int numVerts = (int)vertexArray.size();
-	for (int vecIndex = 0; vecIndex < numVerts; vecIndex++)
-	{
-		pxVecArray.push_back(g_PxPhysXSystem->VecToPxVector(vertexArray[vecIndex]));
-	}
-
-	// We provide points only, therefore the PxConvexFlag::eCOMPUTE_CONVEX flag must be specified
-	desc.points.data = &pxVecArray[0];
-	desc.points.count = numVerts;
-	desc.points.stride = sizeof(PxVec3);
-	desc.flags = PxConvexFlag::eCOMPUTE_CONVEX;
-
-	PxU32 meshSize = 0;
-
-	if (directInsertion)
-	{
-		// Directly insert mesh into PhysX
-		pxConvexMesh = pxCookingModule->createConvexMesh(desc, pxPhysics->getPhysicsInsertionCallback());
-		PX_ASSERT(convex);
-	}
-	else
-	{
-		// Serialize the cooked mesh into a stream.
-		PxFoundation* pxFoundation = g_PxPhysXSystem->GetPhysXFoundationModule();
-		PxDefaultMemoryOutputStream outStream(pxFoundation->getAllocatorCallback());
-		bool res = pxCookingModule->cookConvexMesh(desc, outStream);
-		PX_UNUSED(res);
-		PX_ASSERT(res);
-		meshSize = outStream.getSize();
-
-		// Create the mesh from a stream.
-		PxDefaultMemoryInputData inStream(outStream.getData(), outStream.getSize());
-		pxConvexMesh = pxPhysics->createConvexMesh(inStream);
-
-		//Make the geometru
-		PxConvexMeshGeometry geometry = PxConvexMeshGeometry(pxConvexMesh);
-		const PxMaterial* material = g_PxPhysXSystem->GetDefaultPxMaterial();
-
-		PxShape* shape = pxPhysics->createShape(geometry, *material);
-
-		PxTransform localTm(PxVec3(0, 50.f, 0));
-		PxRigidDynamic* body = pxPhysics->createRigidDynamic(localTm);
-		body->attachShape(*shape);
-		PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
-		pxScene->addActor(*body);
-
-		PX_ASSERT(convex);
-	}
-
-	pxConvexMesh->release();
+	g_PxPhysXSystem->CreateRandomConvexHull(vertexArray, 16, false);
 }
 
 void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
@@ -425,11 +351,11 @@ void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
 	PxShape* shape = physX->createShape(box, *pxMaterial);
 	
 	//Loop to stack everything in a pyramid shape
-	for (PxU32 i = 0; i < size; i++)
+	for (PxU32 layerIndex = 0; layerIndex < size; layerIndex++)
 	{
-		for (PxU32 j = 0; j < size - i; j++)
+		for (PxU32 indexInLayer = 0; indexInLayer < size - layerIndex; indexInLayer++)
 		{
-			PxTransform localTm(PxVec3(PxReal(j * 2) - PxReal(size - i), PxReal(i * 2 + 1), 0) * halfExtent);
+			PxTransform localTm(PxVec3(PxReal(indexInLayer * 2) - PxReal(size - layerIndex), PxReal(layerIndex * 2 + 1), 0) * halfExtent);
 			PxRigidDynamic* body = physX->createRigidDynamic(pxTransform.transform(localTm));
 			body->attachShape(*shape);
 			PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
@@ -441,27 +367,7 @@ void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
 	shape->release();
 }
 
-PxRigidDynamic* Game::CreateDynamicObject(const PxGeometry& pxGeometry, const Vec3& velocity)
-{
-	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
-	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
-	PxMaterial* pxMaterial = physX->createMaterial(0.5f, 0.5f, 0.6f);
-
-	PxVec3 pxVelocity = PxVec3(velocity.x, velocity.y, velocity.z);
-
-	Matrix44 camTransform = m_mainCamera->GetModelMatrix();
-	Vec3 translation = camTransform.GetTVector();
-
-	PxTransform pxTransform(PxVec3(0, 40, 100));
-
-	PxRigidDynamic* dynamic = PxCreateDynamic(*physX, pxTransform, pxGeometry, *pxMaterial, 10.0f);
-	dynamic->setAngularDamping(0.5f);
-	dynamic->setLinearVelocity(pxVelocity);
-	pxScene->addActor(*dynamic);
-
-	return dynamic;
-}
-
+//------------------------------------------------------------------------------------------------------------------------------
 STATIC bool Game::TestEvent(EventArgs& args)
 {
 	UNUSED(args);
@@ -469,6 +375,7 @@ STATIC bool Game::TestEvent(EventArgs& args)
 	return true;
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 STATIC bool Game::ToggleLight1( EventArgs& args )
 {
 	UNUSED(args);
@@ -485,6 +392,7 @@ STATIC bool Game::ToggleLight1( EventArgs& args )
 	return true;
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 STATIC bool Game::ToggleLight2( EventArgs& args )
 {
 	UNUSED(args);
@@ -501,6 +409,7 @@ STATIC bool Game::ToggleLight2( EventArgs& args )
 	return true;
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 STATIC bool Game::ToggleLight3( EventArgs& args )
 {
 	UNUSED(args);
@@ -517,6 +426,7 @@ STATIC bool Game::ToggleLight3( EventArgs& args )
 	return true;
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 bool Game::ToggleLight4( EventArgs& args )
 {
 	UNUSED(args);
@@ -533,6 +443,7 @@ bool Game::ToggleLight4( EventArgs& args )
 	return true;
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 STATIC bool Game::ToggleAllPointLights( EventArgs& args )
 {
 	UNUSED(args);
@@ -551,6 +462,7 @@ STATIC bool Game::ToggleAllPointLights( EventArgs& args )
 	return true;
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::HandleKeyPressed(unsigned char keyCode)
 {
 	if(g_devConsole->IsOpen())
@@ -675,13 +587,13 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 	}
 }
 
-//Function that handles debug mode enabled
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::DebugEnabled()
 {
 	g_debugMode = !g_debugMode;
 }
 
-
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::Shutdown()
 {
 	delete m_mainCamera;
@@ -738,6 +650,7 @@ void Game::HandleKeyReleased(unsigned char keyCode)
 	}
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::HandleCharacter( unsigned char charCode )
 {
 	if(g_devConsole->IsOpen())
@@ -747,35 +660,7 @@ void Game::HandleCharacter( unsigned char charCode )
 	}
 }
 
-void Game::EnablePointLight( uint slot, const Vec3& position, const Vec3& direction, const Rgba& color /*= Rgba::WHITE*/, float intensity /*= 1.f*/, const Vec3& diffuseAttenuation, const Vec3& specularAttenuation ) const
-{
-	LightT pointLight;
-
-	pointLight.position = position;
-	pointLight.color = color;
-	pointLight.color.a = intensity;
-	pointLight.direction = direction;
-	pointLight.diffuseAttenuation = diffuseAttenuation;
-	pointLight.specularAttenuation = specularAttenuation;
-
-	g_renderContext->EnableLight(slot, pointLight);
-}
-
-void Game::EnableDirectionalLight( const Vec3& position, const Vec3& direction,  const Rgba& color /*= Rgba::WHITE*/, float intensity /*= 1.f*/, const Vec3& diffuseAttenuation, const Vec3& specularAttenuation) const
-{
-	LightT directionalLight;
-
-	directionalLight.position = position;
-	directionalLight.color = color;
-	directionalLight.color.a = intensity;
-	directionalLight.direction = direction;
-	directionalLight.isDirection = 1.f;
-	directionalLight.diffuseAttenuation = diffuseAttenuation;
-	directionalLight.specularAttenuation = specularAttenuation;
-
-	g_renderContext->EnableLight(0U, directionalLight);
-}
-
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::Render() const
 {
 	//Get the ColorTargetView from rendercontext
@@ -844,6 +729,7 @@ void Game::Render() const
 
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::RenderUsingMaterial() const
 {
 	g_renderContext->BindMaterial(m_testMaterial);
@@ -881,120 +767,50 @@ void Game::RenderPhysXScene() const
 		std::vector<PxRigidActor*> actors(numActors);
 		scene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<PxActor**>(&actors[0]), numActors);
 
-		RenderPhysXActors(actors, (int)actors.size(), Rgba(0.f, 0.4f, 0.f, 1.f));
+		Rgba color = Rgba(0.f, 0.4f, 0.f, 1.f);
+		RenderPhysXActors(actors, (int)actors.size(), color);
 	}
 }
 
-void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, const Rgba& color) const
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, Rgba& color) const
 {
 	//Look for maximum of 3 shapes to draw per actor
 	PxShape* shapes[3];
 
 	CPUMesh boxMesh;
 	CPUMesh sphereMesh;
+	CPUMesh cvxMesh;
 
-	for (int i = 0; i < numActors; i++)
+	for (int actorIndex = 0; actorIndex < numActors; actorIndex++)
 	{
-		const PxU32 numShapes = actors[i]->getNbShapes();
-		actors[i]->getShapes(shapes, numShapes);
+		const PxU32 numShapes = actors[actorIndex]->getNbShapes();
+		actors[actorIndex]->getShapes(shapes, numShapes);
 
-		//const bool sleeping = actors[i]->is<PxRigidDynamic>() ? actors[i]->is<PxRigidDynamic>()->isSleeping() : false;
+		const bool sleeping = actors[actorIndex]->is<PxRigidDynamic>() ? actors[actorIndex]->is<PxRigidDynamic>()->isSleeping() : false;
 
-		for (PxU32 j = 0; j < numShapes; j++)
+		for (PxU32 shapeIndex = 0; shapeIndex < numShapes; shapeIndex++)
 		{
-			int type = shapes[j]->getGeometryType();
+			int type = shapes[shapeIndex]->getGeometryType();
 
 			switch (type)
 			{
 			case PxGeometryType::eBOX:
 			{
-				AddMeshForPxCube(boxMesh, *actors[i], *shapes[j], color);
+				color = GetColorForGeometry(type, sleeping);
+				AddMeshForPxCube(boxMesh, *actors[actorIndex], *shapes[shapeIndex], color);
 			}
 			break;
 			case PxGeometryType::eSPHERE:
 			{
-				AddMeshForPxSphere(sphereMesh, *actors[i], *shapes[j], Rgba::WHITE);
+				color = GetColorForGeometry(type, sleeping);
+				AddMeshForPxSphere(sphereMesh, *actors[actorIndex], *shapes[shapeIndex], color);
 			}
 			break;
 			case PxGeometryType::eCONVEXMESH:
 			{
-				PxConvexMeshGeometry convexGeometry;
-				shapes[j]->getConvexMeshGeometry(convexGeometry);
-
-				//const Vec3& scale = g_PxPhysXSystem->PxVectorToVec(convexGeometry.scale.scale);
-				PxConvexMesh* pxCvxMesh = convexGeometry.convexMesh;
-				const int nbPolys = pxCvxMesh->getNbPolygons();
-				const uint8_t* polygons = pxCvxMesh->getIndexBuffer();
-				const PxVec3* verts = pxCvxMesh->getVertices();
-				int nbVerts = pxCvxMesh->getNbVertices();
-				PX_UNUSED(nbVerts);
-
-				CPUMesh cvxMesh;
-
-				int numTotalTriangles = 0;
-				for (int index = 0; index < nbPolys; index++)
-				{
-					PxHullPolygon data;
-					pxCvxMesh->getPolygonData(index, data);
-
-					const int nbTris = PxU32(data.mNbVerts - 2);
-					const int vref0 = polygons[data.mIndexBase + 0];
-					PX_ASSERT(vref0 < nbVerts);
-					for (int jIndex = 0; jIndex < nbTris; jIndex++)
-					{
-						const int vref1 = polygons[data.mIndexBase + 0 + jIndex + 1];
-						const int vref2 = polygons[data.mIndexBase + 0 + jIndex + 2];
-
-						//generate face normal:
-						PxVec3 e0 = verts[vref1] - verts[vref0];
-						PxVec3 e1 = verts[vref2] - verts[vref0];
-
-						PX_ASSERT(vref1 < nbVerts);
-						PX_ASSERT(vref2 < nbVerts);
-
-						PxVec3 fnormal = e0.cross(e1);
-						fnormal.normalize();
-						//fnormal *= -1.f;
-
-						VertexMaster vert;
-						vert.m_color = Rgba::MAGENTA;
-						if (numTotalTriangles * 6 < 1024)
-						{
-							vert.m_position = g_PxPhysXSystem->PxVectorToVec(verts[vref0]);
-							vert.m_normal = g_PxPhysXSystem->PxVectorToVec(fnormal);
-							cvxMesh.AddVertex(vert);
-
-							vert.m_position = g_PxPhysXSystem->PxVectorToVec(verts[vref2]);
-							cvxMesh.AddVertex(vert);
-
-							vert.m_position = g_PxPhysXSystem->PxVectorToVec(verts[vref1]);
-							cvxMesh.AddVertex(vert);
-							
-							numTotalTriangles++;
-						}
-					}
-				}
-
-				int vertCount = cvxMesh.GetVertexCount();
-				for (int indexIndex = 0; indexIndex < vertCount; indexIndex++)
-				{
-					cvxMesh.AddIndex(indexIndex);
-				}
-
-				m_pxConvexMesh->CreateFromCPUMesh<Vertex_Lit>(&cvxMesh, GPU_MEMORY_USAGE_STATIC);
-
-				PxMat44 pxTransform = actors[i]->getGlobalPose();
-				PxVec3 pxPosition = pxTransform.getPosition();
-
-				Matrix44 pose;
-				pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
-				pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
-				pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
-				pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
-
-				g_renderContext->SetModelMatrix(pose);
-				g_renderContext->DrawMesh(m_pxConvexMesh);
-
+				color = GetColorForGeometry(type, sleeping);
+				AddMeshForConvexMesh(cvxMesh, *actors[actorIndex], *shapes[shapeIndex], color);
 			}
 			break;
 			default:
@@ -1020,6 +836,62 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 		g_renderContext->BindTextureViewWithSampler(0U, m_sphereTexture);
 		g_renderContext->DrawMesh(m_pxSphere);
 	}
+
+	if (cvxMesh.GetVertexCount() > 0)
+	{
+		m_pxConvexMesh->CreateFromCPUMesh<Vertex_Lit>(&cvxMesh, GPU_MEMORY_USAGE_STATIC);
+		g_renderContext->DrawMesh(m_pxConvexMesh);
+	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+Rgba Game::GetColorForGeometry(int type, bool isSleeping) const
+{
+	Rgba color;
+
+	switch (type)
+	{
+	case PxGeometryType::eBOX:
+	{
+		if (isSleeping)
+		{
+			color = Rgba::DARK_GREY;
+		}
+		else
+		{
+			color = Rgba(0.f, 0.4f, 0.f, 1.f);
+		}
+	}
+	break;
+	case PxGeometryType::eSPHERE:
+	{
+		if (isSleeping)
+		{
+			color = Rgba::DARK_GREY;
+		}
+		else
+		{
+			color = Rgba::WHITE;
+		}
+	}
+	break;
+	case PxGeometryType::eCONVEXMESH:
+	{
+		if (isSleeping)
+		{
+			color = Rgba::DARK_GREY;
+		}
+		else
+		{
+			color = Rgba::MAGENTA;
+		}
+	}
+	break;
+	default:
+		break;
+	}
+
+	return color;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1043,6 +915,7 @@ void Game::AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const P
 	CPUMeshAddCube(&boxMesh, boxShape, color);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::AddMeshForPxSphere(CPUMesh& sphereMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const
 {
 	PxSphereGeometry sphere;
@@ -1065,6 +938,87 @@ void Game::AddMeshForPxSphere(CPUMesh& sphereMesh, const PxRigidActor& actor, co
 	int limit = numVerts - ((16 + 1) * (8 + 1));
 
 	sphereMesh.TransformVerticesInRange(limit, numVerts, pose);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const
+{
+	PxConvexMeshGeometry convexGeometry;
+	shape.getConvexMeshGeometry(convexGeometry);
+
+	//const Vec3& scale = g_PxPhysXSystem->PxVectorToVec(convexGeometry.scale.scale);
+	PxConvexMesh* pxCvxMesh = convexGeometry.convexMesh;
+	const int nbPolys = pxCvxMesh->getNbPolygons();
+	const uint8_t* polygons = pxCvxMesh->getIndexBuffer();
+	const PxVec3* verts = pxCvxMesh->getVertices();
+	int nbVerts = pxCvxMesh->getNbVertices();
+	PX_UNUSED(nbVerts);
+
+	PxMat44 pxTransform = actor.getGlobalPose();
+	PxVec3 pxPosition = pxTransform.getPosition();
+
+	Matrix44 pose;
+	pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+
+	int numTotalTriangles = 0;
+	for (int index = 0; index < nbPolys; index++)
+	{
+		PxHullPolygon data;
+		pxCvxMesh->getPolygonData(index, data);
+
+		const int nbTris = PxU32(data.mNbVerts - 2);
+		const int vref0 = polygons[data.mIndexBase + 0];
+		PX_ASSERT(vref0 < nbVerts);
+		for (int jIndex = 0; jIndex < nbTris; jIndex++)
+		{
+			const int vref1 = polygons[data.mIndexBase + 0 + jIndex + 1];
+			const int vref2 = polygons[data.mIndexBase + 0 + jIndex + 2];
+
+			//generate face normal:
+			PxVec3 e0 = verts[vref1] - verts[vref0];
+			PxVec3 e1 = verts[vref2] - verts[vref0];
+
+			PX_ASSERT(vref1 < nbVerts);
+			PX_ASSERT(vref2 < nbVerts);
+
+			PxVec3 fnormal = e0.cross(e1);
+			fnormal.normalize();
+			//fnormal *= -1.f;
+
+			VertexMaster vert;
+			vert.m_color = color;
+			if (numTotalTriangles * 6 < 1024)
+			{
+				Vec3 position = g_PxPhysXSystem->PxVectorToVec(verts[vref0]);
+				position = pose.TransformPosition3D(position);
+
+				vert.m_position = position;
+				vert.m_normal = g_PxPhysXSystem->PxVectorToVec(fnormal);
+				cvxMesh.AddVertex(vert);
+
+				position = g_PxPhysXSystem->PxVectorToVec(verts[vref2]);
+				position = pose.TransformPosition3D(position);
+				vert.m_position = position;
+				cvxMesh.AddVertex(vert);
+
+				position = g_PxPhysXSystem->PxVectorToVec(verts[vref1]);
+				position = pose.TransformPosition3D(position);
+				vert.m_position = position;
+				cvxMesh.AddVertex(vert);
+
+				numTotalTriangles++;
+			}
+		}
+	}
+
+	int vertCount = cvxMesh.GetVertexCount();
+	for (int indexIndex = 0; indexIndex < vertCount; indexIndex++)
+	{
+		cvxMesh.AddIndex(indexIndex);
+	}
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1148,10 +1102,8 @@ void Game::Update( float deltaTime )
 	m_mainCamera->SetModelMatrix(camTransform);
 
 	m_cubeTransform = Matrix44::SetTranslation3D( Vec3(-5.0f, 0.0f, 0.0f), m_cubeTransform);
-
 	m_sphereTransform = Matrix44::MakeFromEuler( Vec3(0.0f, -45.0f * currentTime, 0.0f) ); 
 	m_sphereTransform = Matrix44::SetTranslation3D( Vec3(5.0f, 0.0f, 0.0f), m_sphereTransform);
-
 	m_quadTransfrom = Matrix44::SetTranslation3D(Vec3(0.f, 0.f, 0.f), m_quadTransfrom);
 
 	m_testDirection = m_testDirection.GetRotatedAboutYDegrees(currentTime * ui_testSlider);
@@ -1283,7 +1235,7 @@ void Game::UpdateLightPositions()
 	options.beginColor = Rgba::YELLOW;
 	options.endColor = Rgba::YELLOW * 0.4f;
 	g_debugRenderer->DebugRenderPoint(options, m_dynamicLight2Pos, 0.1f, 0.1f, nullptr);
-
+	
 	//Light 4
 	m_dynamicLight3Pos = Vec3(4.f * CosDegrees(currentTime * 60.f), 0.f , 4.f * SinDegrees(currentTime * 60.f));
 	g_renderContext->m_cpuLightBuffer.lights[4].position = m_dynamicLight3Pos;
@@ -1324,12 +1276,12 @@ void Game::RenderIsoSprite() const
 void Game::CreateInitialLight()
 {
 	m_directionalLightPos = Vec3(-1.f, -1.f, -1.f).GetNormalized();
-	EnableDirectionalLight(Vec3(1.f, 1.f, 1.f), m_directionalLightPos);
+	g_renderContext->EnableDirectionalLight(Vec3(1.f, 1.f, 1.f), m_directionalLightPos);
 
-	EnablePointLight(1U, m_dynamicLight0Pos, Vec3(1.f, 0.f, 0.5f),Rgba::GREEN);
-	EnablePointLight(2U, m_dynamicLight1Pos, Vec3(0.f, -1.f, 0.f), Rgba::BLUE, 1.f, Vec3(0.f, 1.f, 0.f), Vec3(0.f, 0.1f, 0.f));
-	EnablePointLight(3U, m_dynamicLight2Pos, Vec3(0.f, 0.f, 1.f), Rgba::YELLOW, 1.f, Vec3(0.f, 1.f, 0.1f), Vec3(0.f, 0.1f, 0.f));
-	EnablePointLight(4U, m_dynamicLight3Pos, Vec3(-1.f, -1.f, 0.f), Rgba::MAGENTA, 1.f, Vec3(0.f, 0.f, 1.f), Vec3(0.f, 0.f, 1.f));
+	g_renderContext->EnablePointLight(1U, m_dynamicLight0Pos, Vec3(1.f, 0.f, 0.5f),Rgba::GREEN);
+	g_renderContext->EnablePointLight(2U, m_dynamicLight1Pos, Vec3(0.f, -1.f, 0.f), Rgba::BLUE, 1.f, Vec3(0.f, 1.f, 0.f), Vec3(0.f, 0.1f, 0.f));
+	g_renderContext->EnablePointLight(3U, m_dynamicLight2Pos, Vec3(0.f, 0.f, 1.f), Rgba::YELLOW, 1.f, Vec3(0.f, 1.f, 0.1f), Vec3(0.f, 0.1f, 0.f));
+	g_renderContext->EnablePointLight(4U, m_dynamicLight3Pos, Vec3(-1.f, -1.f, 0.f), Rgba::MAGENTA, 1.f, Vec3(0.f, 0.f, 1.f), Vec3(0.f, 0.f, 1.f));
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
