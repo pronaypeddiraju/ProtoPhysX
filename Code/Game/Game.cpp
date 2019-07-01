@@ -306,7 +306,7 @@ void Game::SetupPhysX()
 	//Add things to your scene
 	PxRigidStatic* groundPlane = PxCreatePlane(*physX, PxPlane(0, 1, 0, 0), *pxMat);
 	pxScene->addActor(*groundPlane);
-	for (PxU32 i = 0; i < 5; i++)
+	for (int setIndex = 0; setIndex < 5; setIndex++)
 	{
 		CreatePhysXStack(Vec3(0,0, m_anotherTestTempHackStackZ -= 10.f), 10, 2.f);
 	}
@@ -326,43 +326,40 @@ void Game::CreatePhysXArticulationChain()
 
 	articulation = physX->createArticulation();
 
-	// Stabilization can create artefacts on jointed objects so we just disable it
+	// Stabilization can create artifacts on jointed objects so we just disable it
 	articulation->setStabilizationThreshold(0.0f);
 
 	articulation->setMaxProjectionIterations(16);
 	articulation->setSeparationTolerance(0.001f);
 
-	const float scale = 0.25f;
-	const float radius = 0.5f*scale;
-	const float halfHeight = 1.0f*scale;
-	const PxU32 nbCapsules = 40;
-	const float capsuleMass = 1.0f;
+	const float radius = 0.5f * m_articulationScale;
+	const float halfHeight = 1.0f * m_articulationScale;
 
 	const PxVec3 initPos(50.0f, 24.0f, 0.0f);
 	PxVec3 pos = initPos;
 	PxShape* capsuleShape = physX->createShape(PxCapsuleGeometry(radius, halfHeight), *material);
-	PxArticulationLink* firstLink = NULL;
-	PxArticulationLink* parent = NULL;
+	PxArticulationLink* firstLink = nullptr;
+	PxArticulationLink* parent = nullptr;
 
-	const bool overlappingLinks = true;	// Change this for another kind of rope
+	const bool overlappingLinks = false;	// Change this for another kind of rope
 
 	articulation->setSolverIterationCounts(16);
 
 	// Create rope
-	for (PxU32 i = 0; i < nbCapsules; i++)
+	for (int linkIndex = 0; linkIndex < m_numCapsules; linkIndex++)
 	{
 		PxArticulationLink* link = articulation->createLink(parent, PxTransform(pos));
 		if (!firstLink)
 			firstLink = link;
 
 		link->attachShape(*capsuleShape);
-		PxRigidBodyExt::setMassAndUpdateInertia(*link, capsuleMass);
+		PxRigidBodyExt::setMassAndUpdateInertia(*link, m_capsuleMass);
 
-		link->setLinearDamping(0.1f);
-		link->setAngularDamping(0.1f);
+		link->setLinearDamping(m_linkLinearDamping);
+		link->setAngularDamping(m_linkAngularDamping);
 
-		link->setMaxAngularVelocity(30.f);
-		link->setMaxLinearVelocity(100.f);
+		link->setMaxAngularVelocity(m_linkMaxAngularVelocity);
+		link->setMaxLinearVelocity(m_linkMaxLinearVelocity);
 
 		PxArticulationJointBase* joint = link->getInboundJoint();
 
@@ -389,29 +386,27 @@ void Game::CreatePhysXArticulationChain()
 
 	//Attach large & heavy box at the end of the rope
 	{
-		const float boxMass = 50.0f;
-		const float boxSize = 1.0f;
-		PxShape* boxShape = physX->createShape(PxBoxGeometry(boxSize, boxSize, boxSize), *material);
+		PxShape* boxShape = physX->createShape(PxBoxGeometry(m_weightSize, m_weightSize, m_weightSize), *material);
 
 		pos.x -= (radius + halfHeight) * 2.0f;
-		pos.x += (radius + halfHeight) + boxSize;
+		pos.x += (radius + halfHeight) + m_weightSize;
 
 		PxArticulationLink* link = articulation->createLink(parent, PxTransform(pos));
 
-		link->setLinearDamping(0.1f);
-		link->setAngularDamping(0.1f);
-		link->setMaxAngularVelocity(30.f);
-		link->setMaxLinearVelocity(100.f);
+		link->setLinearDamping(m_linkLinearDamping);
+		link->setAngularDamping(m_linkAngularDamping);
+		link->setMaxAngularVelocity(m_linkMaxAngularVelocity);
+		link->setMaxLinearVelocity(m_linkMaxLinearVelocity);
 
 		link->attachShape(*boxShape);
-		PxRigidBodyExt::setMassAndUpdateInertia(*link, boxMass);
+		PxRigidBodyExt::setMassAndUpdateInertia(*link, m_weightMass);
 
 		PxArticulationJointBase* joint = link->getInboundJoint();
 
 		if (joint)	// Will be null for root link
 		{
 			joint->setParentPose(PxTransform(PxVec3(radius + halfHeight, 0.0f, 0.0f)));
-			joint->setChildPose(PxTransform(PxVec3(-boxSize, 0.0f, 0.0f)));
+			joint->setChildPose(PxTransform(PxVec3(-m_weightSize, 0.0f, 0.0f)));
 		}
 	}
 	scene->addArticulation(*articulation);
@@ -421,8 +416,8 @@ void Game::CreatePhysXArticulationChain()
 	PxShape* anchorShape = physX->createShape(PxSphereGeometry(0.05f), *material);
 	PxRigidStatic* anchor = PxCreateStatic(*physX, PxTransform(initPos), *anchorShape);
 	scene->addActor(*anchor);
-	PxSphericalJoint* j = PxSphericalJointCreate(*physX, anchor, PxTransform(PxVec3(0.0f)), firstLink, PxTransform(PxVec3(0.0f)));
-	PX_UNUSED(j);
+	PxSphericalJoint* sphericalJoint = PxSphericalJointCreate(*physX, anchor, PxTransform(PxVec3(0.0f)), firstLink, PxTransform(PxVec3(0.0f)));
+	PX_UNUSED(sphericalJoint);
 
 	// Create obstacle
 	PxShape* boxShape = physX->createShape(PxBoxGeometry(1.0f, 0.1f, 2.0f), *material);

@@ -222,6 +222,19 @@ public:
 	Vec3								m_chainPosition = Vec3(-50.0f, 20.0f, 50.0f);
 	int									m_chainLength = 5;
 	float								m_chainSeperation = 4;
+
+	//For Articulation
+	float								m_articulationScale = 0.25f;
+	int									m_numCapsules = 40;
+	float								m_capsuleMass = 1.f;
+
+	float								m_linkLinearDamping = 0.1f;
+	float								m_linkAngularDamping = 0.1f;
+	float								m_linkMaxLinearVelocity = 100.f;
+	float								m_linkMaxAngularVelocity = 30.f;
+
+	float								m_weightMass = 50.f;
+	float								m_weightSize = 1.f;
 	//------------------------------------------------------------------------------------------------------------------------------
 	// Iso Sprite Test Variables
 	//------------------------------------------------------------------------------------------------------------------------------
