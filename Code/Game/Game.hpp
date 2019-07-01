@@ -60,6 +60,7 @@ public:
 	void								SetStartupDebugRenderObjects();
 	void								SetupPhysX();
 
+	void								CreatePhysXChains(const Vec3& position, int length, const PxGeometry& geometry, float separation);
 	void								CreatePhysXConvexHull();
 	void								CreatePhysXStack(const Vec3& position, uint size, float halfExtent);
 
@@ -195,6 +196,7 @@ public:
 	//------------------------------------------------------------------------------------------------------------------------------
 
 	float								m_anotherTestTempHackStackZ = 10.0f;
+	float								m_dynamicObjectDensity = 100.f;
 	PxRigidActor*						m_pxConvexActor = nullptr;
 	PxMaterial*							m_pxConvexMaterial = nullptr;
 
@@ -203,6 +205,20 @@ public:
 	GPUMesh*							m_pxSphere = nullptr;
 	GPUMesh*							m_pxConvexMesh = nullptr;
 
+	//For joints
+	float								m_defaultConeFreedomY = 45.f;
+	float								m_defaultConeFreedomZ = 45.f;
+	float								m_defaultContactDistance = 0.05f;
+	float								m_defaultBreakForce = 1000.f;
+	float								m_defaultBreakTorque = 100000.f;
+	float								m_defaultDriveStiffness = 0.f;
+	float								m_defaultDriveDamping = 1000.f;
+	float								m_defaultDriveForceLimit = FLT_MAX;
+	bool								m_isDriveAccelerating = true ;
+
+	Vec3								m_chainPosition = Vec3(-50.0f, 20.0f, 50.0f);
+	int									m_chainLength = 5;
+	float								m_chainSeperation = 4;
 	//------------------------------------------------------------------------------------------------------------------------------
 	// Iso Sprite Test Variables
 	//------------------------------------------------------------------------------------------------------------------------------

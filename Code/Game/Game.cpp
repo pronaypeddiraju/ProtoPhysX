@@ -310,7 +310,7 @@ void Game::SetupPhysX()
 	}
 
 	PxMaterial* pxMat;
-	pxMat = physX->createMaterial(0.5f, 0.5f, 0.6f);
+	pxMat = g_PxPhysXSystem->GetDefaultPxMaterial();
 
 	//Add things to your scene
 	PxRigidStatic* groundPlane = PxCreatePlane(*physX, PxPlane(0, 1, 0, 0), *pxMat);
@@ -321,8 +321,26 @@ void Game::SetupPhysX()
 	}
 
 	CreatePhysXConvexHull();
+
+	CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
 }
 
+void Game::CreatePhysXChains(const Vec3& position, int length, const PxGeometry& geometry, float separation)
+{
+	Vec3 offsetZ = Vec3(0.f, 0.f, 20.f);
+	Vec3 offsetY = Vec3(0.f, 20.f, 0.f);
+
+	g_PxPhysXSystem->CreateSimpleSphericalChain(position, length, geometry, separation);
+	g_PxPhysXSystem->CreateLimitedSphericalChain(position + offsetY, length, geometry, separation, m_defaultConeFreedomY, m_defaultConeFreedomZ, m_defaultContactDistance);
+
+	g_PxPhysXSystem->CreateSimpleFixedChain(position + offsetZ, length, geometry, separation);
+	g_PxPhysXSystem->CreateBreakableFixedChain(position + offsetZ + offsetY, length, geometry, separation, m_defaultBreakForce, m_defaultBreakTorque);
+
+	g_PxPhysXSystem->CreateDampedD6Chain(position + (offsetZ * 2.f), length, geometry, separation, m_defaultDriveStiffness, m_defaultDriveDamping, m_defaultDriveForceLimit, m_isDriveAccelerating);
+}
+
+
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::CreatePhysXConvexHull()
 {
 	std::vector<Vec3> vertexArray;
@@ -338,6 +356,7 @@ void Game::CreatePhysXConvexHull()
 	g_PxPhysXSystem->CreateRandomConvexHull(vertexArray, 16, false);
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::CreatePhysXStack(const Vec3& position, uint size, float halfExtent)
 {
 	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
@@ -493,7 +512,7 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 			
 			velocity = m_mainCamera->GetCameraForward() * 100.f;
 
-			g_PxPhysXSystem->CreateDynamicObject(PxSphereGeometry(3.f), velocity, m_mainCamera->GetModelMatrix());
+			g_PxPhysXSystem->CreateDynamicObject(PxSphereGeometry(3.f), velocity, m_mainCamera->GetModelMatrix(), m_dynamicObjectDensity);
 		}
 		break;
 		case N_KEY:
@@ -518,7 +537,7 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 		case A_KEY:
 		{
 			//Handle left movement
-			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetIVector() * -1.f;
+			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetIBasis() * -1.f;
 			worldMovementDirection *= (m_cameraSpeed);
 
 			m_camPosition += worldMovementDirection; 
@@ -527,7 +546,7 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 		case W_KEY:
 		{
 			//Handle forward movement
-			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetKVector();
+			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetKBasis();
 			worldMovementDirection *= (m_cameraSpeed); 
 
 			m_camPosition += worldMovementDirection; 
@@ -536,7 +555,7 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 		case S_KEY:
 		{
 			//Handle backward movement
-			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetKVector() * -1.f;
+			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetKBasis() * -1.f;
 			worldMovementDirection *= (m_cameraSpeed); 
 
 			m_camPosition += worldMovementDirection; 
@@ -545,7 +564,7 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 		case D_KEY:
 		{
 			//Handle right movement
-			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetIVector();
+			Vec3 worldMovementDirection = m_mainCamera->m_cameraModel.GetIBasis();
 			worldMovementDirection *= (m_cameraSpeed); 
 
 			m_camPosition += worldMovementDirection; 
@@ -904,10 +923,10 @@ void Game::AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const P
 	PxVec3 pxPosition = pxTransform.getPosition();
 
 	Matrix44 pose;
-	pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
-	pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
-	pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
-	pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+	pose.SetIBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
 
 	AABB3 boxShape = AABB3(-1.f * halfExtents, halfExtents);
 	boxShape.TransfromUsingMatrix(pose);
@@ -927,10 +946,10 @@ void Game::AddMeshForPxSphere(CPUMesh& sphereMesh, const PxRigidActor& actor, co
 	float radius = sphere.radius;
 
 	Matrix44 pose;
-	pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
-	pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
-	pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
-	pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+	pose.SetIBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
 
 	CPUMeshAddUVSphere(&sphereMesh, Vec3::ZERO, radius, color, 16, 8);
 
@@ -958,10 +977,10 @@ void Game::AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, con
 	PxVec3 pxPosition = pxTransform.getPosition();
 
 	Matrix44 pose;
-	pose.SetIVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
-	pose.SetJVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
-	pose.SetKVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
-	pose.SetTVector(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+	pose.SetIBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
 
 	int numTotalTriangles = 0;
 	for (int index = 0; index < nbPolys; index++)
