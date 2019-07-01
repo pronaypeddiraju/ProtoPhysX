@@ -300,15 +300,6 @@ void Game::SetupPhysX()
 	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
 	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
 
-	PxPvdSceneClient* pvdClient = pxScene->getScenePvdClient();
-	if (pvdClient)
-	{
-		//I have a PVD client, so set some flags that it needs
-		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
-		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
-		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
-	}
-
 	PxMaterial* pxMat;
 	pxMat = g_PxPhysXSystem->GetDefaultPxMaterial();
 
@@ -321,10 +312,125 @@ void Game::SetupPhysX()
 	}
 
 	CreatePhysXConvexHull();
-
 	CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
+	CreatePhysXArticulationChain();
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::CreatePhysXArticulationChain()
+{
+	PxArticulation* articulation;
+	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
+	PxMaterial* material = g_PxPhysXSystem->GetDefaultPxMaterial();
+	PxScene* scene = g_PxPhysXSystem->GetPhysXScene();
+
+	articulation = physX->createArticulation();
+
+	// Stabilization can create artefacts on jointed objects so we just disable it
+	articulation->setStabilizationThreshold(0.0f);
+
+	articulation->setMaxProjectionIterations(16);
+	articulation->setSeparationTolerance(0.001f);
+
+	const float scale = 0.25f;
+	const float radius = 0.5f*scale;
+	const float halfHeight = 1.0f*scale;
+	const PxU32 nbCapsules = 40;
+	const float capsuleMass = 1.0f;
+
+	const PxVec3 initPos(50.0f, 24.0f, 0.0f);
+	PxVec3 pos = initPos;
+	PxShape* capsuleShape = physX->createShape(PxCapsuleGeometry(radius, halfHeight), *material);
+	PxArticulationLink* firstLink = NULL;
+	PxArticulationLink* parent = NULL;
+
+	const bool overlappingLinks = true;	// Change this for another kind of rope
+
+	articulation->setSolverIterationCounts(16);
+
+	// Create rope
+	for (PxU32 i = 0; i < nbCapsules; i++)
+	{
+		PxArticulationLink* link = articulation->createLink(parent, PxTransform(pos));
+		if (!firstLink)
+			firstLink = link;
+
+		link->attachShape(*capsuleShape);
+		PxRigidBodyExt::setMassAndUpdateInertia(*link, capsuleMass);
+
+		link->setLinearDamping(0.1f);
+		link->setAngularDamping(0.1f);
+
+		link->setMaxAngularVelocity(30.f);
+		link->setMaxLinearVelocity(100.f);
+
+		PxArticulationJointBase* joint = link->getInboundJoint();
+
+		if (joint)	// Will be null for root link
+		{
+			if (overlappingLinks)
+			{
+				joint->setParentPose(PxTransform(PxVec3(halfHeight, 0.0f, 0.0f)));
+				joint->setChildPose(PxTransform(PxVec3(-halfHeight, 0.0f, 0.0f)));
+			}
+			else
+			{
+				joint->setParentPose(PxTransform(PxVec3(radius + halfHeight, 0.0f, 0.0f)));
+				joint->setChildPose(PxTransform(PxVec3(-radius - halfHeight, 0.0f, 0.0f)));
+			}
+		}
+
+		if (overlappingLinks)
+			pos.x += (radius + halfHeight * 2.0f);
+		else
+			pos.x += (radius + halfHeight) * 2.0f;
+		parent = link;
+	}
+
+	//Attach large & heavy box at the end of the rope
+	{
+		const float boxMass = 50.0f;
+		const float boxSize = 1.0f;
+		PxShape* boxShape = physX->createShape(PxBoxGeometry(boxSize, boxSize, boxSize), *material);
+
+		pos.x -= (radius + halfHeight) * 2.0f;
+		pos.x += (radius + halfHeight) + boxSize;
+
+		PxArticulationLink* link = articulation->createLink(parent, PxTransform(pos));
+
+		link->setLinearDamping(0.1f);
+		link->setAngularDamping(0.1f);
+		link->setMaxAngularVelocity(30.f);
+		link->setMaxLinearVelocity(100.f);
+
+		link->attachShape(*boxShape);
+		PxRigidBodyExt::setMassAndUpdateInertia(*link, boxMass);
+
+		PxArticulationJointBase* joint = link->getInboundJoint();
+
+		if (joint)	// Will be null for root link
+		{
+			joint->setParentPose(PxTransform(PxVec3(radius + halfHeight, 0.0f, 0.0f)));
+			joint->setChildPose(PxTransform(PxVec3(-boxSize, 0.0f, 0.0f)));
+		}
+	}
+	scene->addArticulation(*articulation);
+
+
+	// Attach articulation to static world
+	PxShape* anchorShape = physX->createShape(PxSphereGeometry(0.05f), *material);
+	PxRigidStatic* anchor = PxCreateStatic(*physX, PxTransform(initPos), *anchorShape);
+	scene->addActor(*anchor);
+	PxSphericalJoint* j = PxSphericalJointCreate(*physX, anchor, PxTransform(PxVec3(0.0f)), firstLink, PxTransform(PxVec3(0.0f)));
+	PX_UNUSED(j);
+
+	// Create obstacle
+	PxShape* boxShape = physX->createShape(PxBoxGeometry(1.0f, 0.1f, 2.0f), *material);
+	PxRigidStatic* obstacle = PxCreateStatic(*physX, PxTransform(initPos + PxVec3(10.0f, -3.0f, 0.0f)), *boxShape);
+	scene->addActor(*obstacle);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::CreatePhysXChains(const Vec3& position, int length, const PxGeometry& geometry, float separation)
 {
 	Vec3 offsetZ = Vec3(0.f, 0.f, 20.f);
@@ -644,6 +750,9 @@ void Game::Shutdown()
 
 	delete m_pxConvexMesh;
 	m_pxConvexMesh = nullptr;
+
+	delete m_pxCapMesh;
+	m_pxCapMesh = nullptr;
 	//FreeResources();
 }
 
@@ -780,13 +889,33 @@ void Game::RenderPhysXScene() const
 	//Bind Material
 	g_renderContext->BindMaterial(m_defaultMaterial);
 
-	PxU32 numActors = scene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
+	int numActors = scene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
 	if (numActors > 0)
 	{
 		std::vector<PxRigidActor*> actors(numActors);
 		scene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, reinterpret_cast<PxActor**>(&actors[0]), numActors);
 
 		Rgba color = Rgba(0.f, 0.4f, 0.f, 1.f);
+		RenderPhysXActors(actors, (int)actors.size(), color);
+	}
+
+	int numArticulations = scene->getNbArticulations();
+	if (numArticulations > 0)
+	{
+		PxArticulationBase* articulation;
+		scene->getArticulations(&articulation, 1);
+
+		int numLinks = articulation->getNbLinks();
+		std::vector<PxArticulationLink*> links(numLinks);
+		articulation->getLinks(&links[0], numLinks);
+
+		std::vector<PxRigidActor*> actors;
+		for (int i = 0; i < numLinks; ++i)
+		{
+			actors.push_back(reinterpret_cast<PxRigidActor*>(links[i]));
+		}
+
+		Rgba color = Rgba(1.f, 1.f, 1.f, 1.f);
 		RenderPhysXActors(actors, (int)actors.size(), color);
 	}
 }
@@ -800,6 +929,7 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 	CPUMesh boxMesh;
 	CPUMesh sphereMesh;
 	CPUMesh cvxMesh;
+	CPUMesh capMesh;
 
 	for (int actorIndex = 0; actorIndex < numActors; actorIndex++)
 	{
@@ -832,6 +962,12 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 				AddMeshForConvexMesh(cvxMesh, *actors[actorIndex], *shapes[shapeIndex], color);
 			}
 			break;
+			case PxGeometryType::eCAPSULE:
+			{
+				color = GetColorForGeometry(type, sleeping);
+				AddMeshForPxCapsule(capMesh, *actors[actorIndex], *shapes[shapeIndex], color);
+			}
+			break;
 			default:
 				break;
 			}
@@ -860,6 +996,12 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 	{
 		m_pxConvexMesh->CreateFromCPUMesh<Vertex_Lit>(&cvxMesh, GPU_MEMORY_USAGE_STATIC);
 		g_renderContext->DrawMesh(m_pxConvexMesh);
+	}
+
+	if (capMesh.GetVertexCount() > 0)
+	{
+		m_pxCapMesh->CreateFromCPUMesh<Vertex_Lit>(&capMesh, GPU_MEMORY_USAGE_STATIC);
+		g_renderContext->DrawMesh(m_pxCapMesh);
 	}
 }
 
@@ -906,6 +1048,17 @@ Rgba Game::GetColorForGeometry(int type, bool isSleeping) const
 		}
 	}
 	break;
+	case PxGeometryType::eCAPSULE:
+	{
+		if (isSleeping)
+		{
+			color = Rgba::DARK_GREY;
+		}
+		else
+		{
+			color = Rgba::RED;
+		}
+	}
 	default:
 		break;
 	}
@@ -957,6 +1110,39 @@ void Game::AddMeshForPxSphere(CPUMesh& sphereMesh, const PxRigidActor& actor, co
 	int limit = numVerts - ((16 + 1) * (8 + 1));
 
 	sphereMesh.TransformVerticesInRange(limit, numVerts, pose);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::AddMeshForPxCapsule(CPUMesh& capMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const
+{
+	PxCapsuleGeometry capsule;
+	shape.getCapsuleGeometry(capsule);
+
+	PxMat44 pxTransform = actor.getGlobalPose();
+	PxVec3 pxPosition = pxTransform.getPosition();
+
+	float radius = capsule.radius;
+
+	Matrix44 pose;
+	pose.SetIBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+
+	float halfHeight = capsule.halfHeight;
+	Vec3 heightOffset = Vec3(0.f, halfHeight, 0.f);
+	Vec3 start = Vec3::ZERO + heightOffset;
+	Vec3 end = Vec3::ZERO - heightOffset;
+
+	CPUMeshAddUVCapsule(&capMesh, start, end, radius, color, 16, 8);
+
+	int numVerts = capMesh.GetVertexCount();
+	int limit = numVerts - ((16 + 1) * (8 + 1));
+
+	Matrix44 rotationMatrix = Matrix44::MakeZRotationDegrees(90.f);
+
+	capMesh.TransformVerticesInRange(limit, numVerts, rotationMatrix);
+	capMesh.TransformVerticesInRange(limit, numVerts, pose);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1353,6 +1539,7 @@ void Game::CreateInitialMeshes()
 	m_pxCube = new GPUMesh(g_renderContext);
 	m_pxSphere = new GPUMesh(g_renderContext);
 	m_pxConvexMesh = new GPUMesh(g_renderContext);
+	m_pxCapMesh = new GPUMesh(g_renderContext);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1364,45 +1551,8 @@ void Game::LoadGameTextures()
 	m_sphereTexture = g_renderContext->CreateOrGetTextureViewFromFile(m_sphereTexturePath);
 
 	//Load the sprite sheet from texture (Need to do XML test)
-	m_laborerSheet = g_renderContext->CreateOrGetTextureViewFromFile(m_laborerSheetPath);
-	m_testSheet = new SpriteSheet(m_laborerSheet, m_laborerSheetDim);
-
-	CreateIsoSpriteDefenitions();
-}
-
-//------------------------------------------------------------------------------------------------------------------------------
-void Game::CreateIsoSpriteDefenitions()
-{	
-	std::vector<SpriteDefenition> spriteDefs;
-	std::vector<Vec3> directions;
-
-	Vec3 dir;
-
-	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(0), Vec2(0.5, 0.25)));
-	directions.push_back(Vec3(0.f, 0.f, 1.f));
-
-	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(16), Vec2(0.5, 0.25)));
-	dir = Vec3(-1.f, 0.f, 1.f).GetNormalized();
-	directions.push_back(dir);
-
-	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(32), Vec2(0.5, 0.25)));
-	directions.push_back(Vec3(-1.f, 0.f, 0.f));
-
-	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(48), Vec2(0.5, 0.25)));
-	dir = Vec3(-1.f, 0.f, -1.f).GetNormalized();
-	directions.push_back(dir);
-
-	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(64), Vec2(0.5, 0.25)));
-	directions.push_back(Vec3(0.f, 0.f, -1.f));
-
-	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(80), Vec2(0.5, 0.25)));
-	dir = Vec3(1.f, 0.f, -1.f).GetNormalized();
-	directions.push_back(dir);
-
-	spriteDefs.push_back(SpriteDefenition(m_testSheet->GetSpriteDef(96), Vec2(0.5, 0.25)));
-	directions.push_back(Vec3(1.f, 0.f, 0.f));
-	
-//	m_isoSprite = new IsoSpriteDefenition(&spriteDefs[0], &directions[0], 7);
+	//m_laborerSheet = g_renderContext->CreateOrGetTextureViewFromFile(m_laborerSheetPath);
+	//m_testSheet = new SpriteSheet(m_laborerSheet, m_laborerSheetDim);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------

@@ -60,6 +60,7 @@ public:
 	void								SetStartupDebugRenderObjects();
 	void								SetupPhysX();
 
+	void								CreatePhysXArticulationChain();
 	void								CreatePhysXChains(const Vec3& position, int length, const PxGeometry& geometry, float separation);
 	void								CreatePhysXConvexHull();
 	void								CreatePhysXStack(const Vec3& position, uint size, float halfExtent);
@@ -79,6 +80,7 @@ public:
 	Rgba								GetColorForGeometry(int type, bool isSleeping) const;
 	void								AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
 	void								AddMeshForPxSphere(CPUMesh& sphereMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
+	void								AddMeshForPxCapsule(CPUMesh& capMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
 	void								AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
 	
 	void								RenderIsoSprite() const;
@@ -204,6 +206,7 @@ public:
 	GPUMesh*							m_pxCube = nullptr;
 	GPUMesh*							m_pxSphere = nullptr;
 	GPUMesh*							m_pxConvexMesh = nullptr;
+	GPUMesh*							m_pxCapMesh = nullptr;
 
 	//For joints
 	float								m_defaultConeFreedomY = 45.f;
