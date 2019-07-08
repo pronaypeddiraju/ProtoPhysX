@@ -103,16 +103,17 @@ void CarController::VehiclePhysicsUpdate(float deltaTime)
 	}
 
 	//Raycasts.
-	PxVehicleWheels* vehicles[1] = { vehicle4W };
+	PxVehicleWheels* vehicleWheels[6] = { vehicle4W };
 	PxRaycastQueryResult* raycastResults = vehicleSceneQueryData->getRaycastQueryResultBuffer(0);
 	const PxU32 raycastResultsSize = vehicleSceneQueryData->getQueryResultBufferSize();
-	PxVehicleSuspensionRaycasts(batchQuery, 1, vehicles, raycastResultsSize, raycastResults);
+	PxVehicleSuspensionRaycasts(batchQuery, 1, vehicleWheels, raycastResultsSize, raycastResults);
 
 	//Vehicle update.
 	const PxVec3 grav = scene->getGravity();
 	PxWheelQueryResult wheelQueryResults[PX_MAX_NB_WHEELS];
 	PxVehicleWheelQueryResult vehicleQueryResults[1] = { {wheelQueryResults, vehicle4W->mWheelsSimData.getNbWheels()} };
-	PxVehicleUpdates(deltaTime, grav, *tireFrictionPairs, 1, vehicles, vehicleQueryResults);
+	int numVehicles = 1;
+	PxVehicleUpdates(deltaTime, grav, *tireFrictionPairs, numVehicles, vehicleWheels, vehicleQueryResults);
 
 	//Work out if the vehicle is in the air.
 	m_isVehicleInAir = vehicle4W->getRigidDynamicActor()->isSleeping() ? false : PxVehicleIsInAir(vehicleQueryResults[0]);

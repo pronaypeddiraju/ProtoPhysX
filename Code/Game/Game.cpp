@@ -87,7 +87,7 @@ void Game::StartUp()
 	options.space = DEBUG_RENDER_SCREEN;
 
 	m_carController = new CarController();
-	//SetupPhysX();	
+	SetupPhysX();	
 
 	Vec3 camEuler = Vec3(-12.5f, -196.f, 0.f);
 	m_mainCamera->SetEuler(camEuler);
@@ -308,14 +308,16 @@ void Game::SetupPhysX()
 	PxRigidStatic* groundPlane = PxCreatePlane(*physX, PxPlane(0, 1, 0, 0), *pxMat);
 	pxScene->addActor(*groundPlane);
 
+	/*
 	for (int setIndex = 0; setIndex < 5; setIndex++)
 	{
 		CreatePhysXStack(Vec3(0,0, m_anotherTestTempHackStackZ -= 10.f), 10, 2.f);
 	}
+	*/
 
 	CreatePhysXConvexHull();
-	CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
-	CreatePhysXArticulationChain();
+	//CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
+	//CreatePhysXArticulationChain();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
