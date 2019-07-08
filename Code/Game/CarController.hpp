@@ -22,11 +22,10 @@ public:
 
 	//Vehicle Controls
 	void	AccelerateForward(float analogAcc = 0.f);
-	void	AccelerateReverse();
+	void	AccelerateReverse(float analogAcc = 0.f);
 	void	Brake();
 
-	void	TurnLeft();
-	void	TurnRight();
+	void	Steer(float analogSteer = 0.f);
 	void	SetHandbrake();
 
 	void	ReleaseAllControls();

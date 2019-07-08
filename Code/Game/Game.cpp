@@ -315,7 +315,7 @@ void Game::SetupPhysX()
 	}
 	*/
 
-	CreatePhysXConvexHull();
+	//CreatePhysXConvexHull();
 	//CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
 	//CreatePhysXArticulationChain();
 }

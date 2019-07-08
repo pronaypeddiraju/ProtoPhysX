@@ -63,17 +63,50 @@ void CarController::Update(float deltaTime)
 //------------------------------------------------------------------------------------------------------------------------------
 void CarController::UpdateInputs(float deltaTime)
 {
+	//First reset all the input on the car
+	ReleaseAllControls();
+
 	//Get Xbox controller data
 	XboxController playerController = g_inputSystem->GetXboxController(0);
 	AnalogJoyStick leftStick = playerController.GetLeftJoystick();
 	AnalogJoyStick rightStick = playerController.GetRightJoystick();
 
 	float rightTrigger = playerController.GetRightTrigger();
+	float leftTrigger = playerController.GetLeftTrigger();
 
+	if (leftStick.GetAngleDegrees() != 0.f)
+	{
+		Vec2 stickPosition = leftStick.GetPosition();
+		if (stickPosition.x > 0.f)
+		{
+			Steer(leftStick.GetMagnitude());
+		}
+		else
+		{
+			Steer(leftStick.GetMagnitude() * -1.f);
+		}
+	}
+
+	//Check acceleration forward/reverse
 	if (rightTrigger > 0.1f)
 	{
 		AccelerateForward(rightTrigger);
 	}
+	else
+	{
+		if (leftTrigger > 0.1f)
+		{
+			AccelerateReverse(leftTrigger);
+		}
+	}
+
+	//Check brake button
+	KeyButtonState buttonAState = playerController.GetButtonState(XBOX_BUTTON_ID_A);
+	if (buttonAState.IsPressed())
+	{
+		Brake();
+	}
+
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -134,6 +167,12 @@ physx::PxVehicleDrive4WRawInputData* CarController::GetVehicleInputData() const
 //------------------------------------------------------------------------------------------------------------------------------
 void CarController::AccelerateForward(float analogAcc)
 {
+	//If I am going reverse, change to first gear
+	if (m_vehicle4W->mDriveDynData.getCurrentGear() == PxVehicleGearsData::eREVERSE)
+	{
+		m_vehicle4W->mDriveDynData.forceGearChange(PxVehicleGearsData::eFIRST);
+	}
+
 	if (m_digitalControlEnabled)
 	{
 		m_vehicleInputData->setDigitalAccel(true);
@@ -145,8 +184,9 @@ void CarController::AccelerateForward(float analogAcc)
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void CarController::AccelerateReverse()
+void CarController::AccelerateReverse(float analogAcc /*= 0.f*/)
 {
+	//Force gear change to reverse
 	m_vehicle4W->mDriveDynData.forceGearChange(PxVehicleGearsData::eREVERSE);
 
 	if (m_digitalControlEnabled)
@@ -155,7 +195,53 @@ void CarController::AccelerateReverse()
 	}
 	else
 	{
-		m_vehicleInputData->setAnalogAccel(1.f);
+		m_vehicleInputData->setAnalogAccel(analogAcc);
+	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void CarController::Brake()
+{
+	if (m_digitalControlEnabled)
+	{
+		m_vehicleInputData->setDigitalBrake(true);
+	}
+	else
+	{
+		m_vehicleInputData->setAnalogBrake(1.f);
+	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void CarController::Steer(float analogSteer /*= 0.f*/)
+{
+	if (m_digitalControlEnabled)
+	{
+		ERROR_AND_DIE("Digital controls to be setup different from analog controls");
+	}
+	else
+	{
+		m_vehicleInputData->setAnalogSteer(analogSteer);
+	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void CarController::ReleaseAllControls()
+{
+	if (m_digitalControlEnabled)
+	{
+		m_vehicleInputData->setDigitalAccel(false);
+		m_vehicleInputData->setDigitalSteerLeft(false);
+		m_vehicleInputData->setDigitalSteerRight(false);
+		m_vehicleInputData->setDigitalBrake(false);
+		m_vehicleInputData->setDigitalHandbrake(false);
+	}
+	else
+	{
+		m_vehicleInputData->setAnalogAccel(0.0f);
+		m_vehicleInputData->setAnalogSteer(0.0f);
+		m_vehicleInputData->setAnalogBrake(0.0f);
+		m_vehicleInputData->setAnalogHandbrake(0.0f);
 	}
 }
 
