@@ -123,7 +123,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)Code/Submodule/Engine/Code/ThirdParty/PhysX/include;$(SolutionDir)Code/;$(SolutionDir)Code/Submodule/Engine/Code/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Code/Submodule/Engine/Code/ThirdParty/PhysX/include/vehicle;$(SolutionDir)Code/Submodule/Engine/Code/ThirdParty/PhysX/include;$(SolutionDir)Code/;$(SolutionDir)Code/Submodule/Engine/Code/</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -193,6 +193,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
+    <ClCompile Include="CarController.cpp" />
     <ClCompile Include="Entity.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Main_Windows.cpp">
@@ -205,6 +206,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.hpp" />
+    <ClInclude Include="CarController.hpp" />
     <ClInclude Include="EngineBuildPreferences.hpp" />
     <ClInclude Include="Entity.hpp" />
     <ClInclude Include="Game.hpp" />

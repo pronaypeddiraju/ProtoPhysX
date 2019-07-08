@@ -86,7 +86,8 @@ void Game::StartUp()
 	DebugRenderOptionsT options;
 	options.space = DEBUG_RENDER_SCREEN;
 
-	SetupPhysX();
+	m_carController = new CarController();
+	//SetupPhysX();	
 
 	Vec3 camEuler = Vec3(-12.5f, -196.f, 0.f);
 	m_mainCamera->SetEuler(camEuler);
@@ -306,6 +307,7 @@ void Game::SetupPhysX()
 	//Add things to your scene
 	PxRigidStatic* groundPlane = PxCreatePlane(*physX, PxPlane(0, 1, 0, 0), *pxMat);
 	pxScene->addActor(*groundPlane);
+
 	for (int setIndex = 0; setIndex < 5; setIndex++)
 	{
 		CreatePhysXStack(Vec3(0,0, m_anotherTestTempHackStackZ -= 10.f), 10, 2.f);
@@ -319,12 +321,10 @@ void Game::SetupPhysX()
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::CreatePhysXArticulationChain()
 {
-	PxArticulation* articulation;
 	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
 	PxMaterial* material = g_PxPhysXSystem->GetDefaultPxMaterial();
 	PxScene* scene = g_PxPhysXSystem->GetPhysXScene();
-
-	articulation = physX->createArticulation();
+	PxArticulation* articulation = physX->createArticulation();
 
 	// Stabilization can create artifacts on jointed objects so we just disable it
 	articulation->setStabilizationThreshold(0.0f);
@@ -341,7 +341,7 @@ void Game::CreatePhysXArticulationChain()
 	PxArticulationLink* firstLink = nullptr;
 	PxArticulationLink* parent = nullptr;
 
-	const bool overlappingLinks = false;	// Change this for another kind of rope
+	const bool overlappingLinks = true;	// Change this for another kind of rope
 
 	articulation->setSolverIterationCounts(16);
 
@@ -918,8 +918,8 @@ void Game::RenderPhysXScene() const
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, Rgba& color) const
 {
-	//Look for maximum of 3 shapes to draw per actor
-	PxShape* shapes[3];
+	//Look for maximum of 10 shapes to draw per actor
+	PxShape* shapes[10] = { nullptr };
 
 	CPUMesh boxMesh;
 	CPUMesh sphereMesh;
@@ -1154,7 +1154,7 @@ void Game::AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, con
 	int nbVerts = pxCvxMesh->getNbVertices();
 	PX_UNUSED(nbVerts);
 
-	PxMat44 pxTransform = actor.getGlobalPose();
+	PxMat44 pxTransform = actor.getGlobalPose() * shape.getLocalPose();
 	PxVec3 pxPosition = pxTransform.getPosition();
 
 	Matrix44 pose;
@@ -1169,7 +1169,7 @@ void Game::AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, con
 		PxHullPolygon data;
 		pxCvxMesh->getPolygonData(index, data);
 
-		const int nbTris = PxU32(data.mNbVerts - 2);
+		const int nbTris = int(data.mNbVerts - 2);
 		const int vref0 = polygons[data.mIndexBase + 0];
 		PX_ASSERT(vref0 < nbVerts);
 		for (int jIndex = 0; jIndex < nbTris; jIndex++)
@@ -1190,7 +1190,7 @@ void Game::AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, con
 
 			VertexMaster vert;
 			vert.m_color = color;
-			if (numTotalTriangles * 6 < 1024)
+			if (numTotalTriangles * 3 < 1024)
 			{
 				Vec3 position = g_PxPhysXSystem->PxVectorToVec(verts[vref0]);
 				position = pose.TransformPosition3D(position);
@@ -1219,6 +1219,22 @@ void Game::AddMeshForConvexMesh(CPUMesh& cvxMesh, const PxRigidActor& actor, con
 	{
 		cvxMesh.AddIndex(indexIndex);
 	}
+
+	/*
+	Matrix44 pose;
+	pose.SetIBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column0));
+	pose.SetJBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column1));
+	pose.SetKBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column2));
+	pose.SetTBasis(g_PxPhysXSystem->PxVectorToVec(pxTransform.column3));
+	
+
+	int numVerts = cvxMesh.GetVertexCount();
+	int limit = nbVerts;
+	Matrix44 rotationMatrix = Matrix44::MakeZRotationDegrees(90.f);
+
+	cvxMesh.TransformVerticesInRange(limit, numVerts, rotationMatrix);
+	cvxMesh.TransformVerticesInRange(limit, numVerts, pose);
+	*/
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1309,6 +1325,14 @@ void Game::Update( float deltaTime )
 	m_testDirection = m_testDirection.GetRotatedAboutYDegrees(currentTime * ui_testSlider);
 
 	UpdateImGUI();
+
+	UpdatePhysXCar(deltaTime);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::UpdatePhysXCar(float deltaTime)
+{
+	m_carController->Update(deltaTime);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------

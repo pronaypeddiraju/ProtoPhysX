@@ -25,6 +25,9 @@
     <ClCompile Include="PhysXGame.cpp">
       <Filter>Gameplay</Filter>
     </ClCompile>
+    <ClCompile Include="CarController.cpp">
+      <Filter>Gameplay</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Entity.hpp">
@@ -45,5 +48,6 @@
     <ClInclude Include="PhysXGame.hpp">
       <Filter>Gameplay</Filter>
     </ClInclude>
+    <ClInclude Include="CarController.hpp" />
   </ItemGroup>
 </Project>

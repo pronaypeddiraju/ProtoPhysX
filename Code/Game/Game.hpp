@@ -8,6 +8,7 @@
 #include "Engine/Renderer/SpriteSheet.hpp"
 #include "Engine/Renderer/IsoSpriteDefenition.hpp"
 //Game Systems
+#include "Game/CarController.hpp"
 #include "Game/GameCommon.hpp"
 //Third Party
 #include "extensions/PxDefaultAllocator.h"
@@ -90,6 +91,7 @@ public:
 	void								PostRender();
 	
 	void								Update( float deltaTime );
+	void								UpdatePhysXCar( float deltaTime );
 	void								UpdateImGUI();
 	void								UpdateImGUITestWidget();
 	void								UpdateMouseInputs(float deltaTime);
@@ -102,6 +104,8 @@ private:
 	bool								m_devConsoleSetup = false;
 	bool								m_isDebugSetup = false;
 	float								m_cameraSpeed = 0.3f; 
+
+	CarController*						m_carController = nullptr;
 
 public:
 	SoundID								m_testAudioID = NULL;
