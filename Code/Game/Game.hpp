@@ -8,6 +8,7 @@
 #include "Engine/Renderer/SpriteSheet.hpp"
 #include "Engine/Renderer/IsoSpriteDefenition.hpp"
 //Game Systems
+#include "Game/CarCamera.hpp"
 #include "Game/CarController.hpp"
 #include "Game/GameCommon.hpp"
 //Third Party
@@ -71,6 +72,8 @@ public:
 	void								HandleKeyPressed(unsigned char keyCode);
 	void								HandleKeyReleased( unsigned char keyCode );
 	void								HandleCharacter( unsigned char charCode );
+
+	bool								HandleMouseScroll(float wheelDelta);
 
 	void								DebugEnabled();
 	void								Shutdown();
@@ -210,6 +213,11 @@ public:
 	float								ui_dirLight[3] = { -1.f, -1.f, -1.f };
 	float								ui_dynamicSpawnPos[3] = { -1.f, -1.f, -1.f };
 	float								ui_dynamicVelocity[3] = { -1.f, -1.f, -1.f };
+	
+	float								ui_camTilt = 10.f;
+	float								ui_camAngle = 10.f;
+	float								ui_camHeight = 10.f;
+	float								ui_camDistance = 10.f;
 
 	//------------------------------------------------------------------------------------------------------------------------------
 	// PhysX Test Variables
@@ -271,4 +279,9 @@ public:
 	Vec3								m_dynamicSpawnPos = Vec3(0.f, 40.f, 100.f);
 	Vec3								m_dynamicDropVelocity = Vec3(0.f, -40.f, 100.f);
 
+	//------------------------------------------------------------------------------------------------------------------------------
+	//Car Camera and other game data
+	//------------------------------------------------------------------------------------------------------------------------------
+	CarCamera*							m_carCamera = nullptr;
+	float								m_frameZoomDelta = 0.f;
 };

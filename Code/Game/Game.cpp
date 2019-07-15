@@ -98,15 +98,18 @@ void Game::StartUp()
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::SetupMouseData()
 {
-	IntVec2 clientCenter = g_windowContext->GetClientCenter();
-	g_windowContext->SetClientMousePosition(clientCenter);
+	//IntVec2 clientCenter = g_windowContext->GetClientCenter();
+	//g_windowContext->SetClientMousePosition(clientCenter);
 
-	g_windowContext->SetMouseMode(MOUSE_MODE_RELATIVE);
-	g_windowContext->HideMouse();
+	g_windowContext->SetMouseMode(MOUSE_MODE_ABSOLUTE);
+	//g_windowContext->HideMouse();
 }
 
 void Game::SetupCameras()
 {
+	IntVec2 client = g_windowContext->GetTrueClientBounds();
+	float aspect = (float)client.x / (float)client.y;
+
 	//Create the Camera and setOrthoView
 	m_mainCamera = new Camera();
 	m_mainCamera->SetColorTarget(nullptr);
@@ -119,6 +122,11 @@ void Game::SetupCameras()
 	m_camPosition = Vec3(30.f, 30.f, 60.f);
 	m_mainCamera->SetColorTarget(nullptr);
 	m_mainCamera->SetPerspectiveProjection( m_camFOVDegrees, 0.1f, 1000.0f, SCREEN_ASPECT);
+
+	//CarCamera
+	m_carCamera = new CarCamera();
+	m_carCamera->SetColorTarget(nullptr);
+	m_carCamera->SetPerspectiveProjection(m_camFOVDegrees, 0.1f, 100.0f, aspect);
 
 	m_clearScreenColor = new Rgba(0.f, 0.f, 0.5f, 1.f);
 }
@@ -772,6 +780,9 @@ void Game::Shutdown()
 	delete m_devConsoleCamera;
 	m_devConsoleCamera = nullptr;
 
+	delete m_carCamera;
+	m_carCamera = nullptr;
+
 	delete m_cube;
 	m_cube = nullptr;
 
@@ -834,6 +845,16 @@ void Game::HandleCharacter( unsigned char charCode )
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
+bool Game::HandleMouseScroll(float wheelDelta)
+{
+	m_frameZoomDelta -= wheelDelta;
+
+	m_frameZoomDelta = Clamp(m_frameZoomDelta, MIN_ZOOM_STEPS, MAX_ZOOM_STEPS);
+
+	return true;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
 void Game::Render() const
 {
 	//Get the ColorTargetView from rendercontext
@@ -842,14 +863,16 @@ void Game::Render() const
 	//Setup what we are rendering to
 	m_mainCamera->SetColorTarget(colorTargetView);
 	m_devConsoleCamera->SetColorTarget(colorTargetView);
+	m_carCamera->SetColorTarget(colorTargetView);
 
 	// Move the camera to where it is in the scene
 	Matrix44 camTransform = Matrix44::MakeFromEuler( m_mainCamera->GetEuler(), m_rotationOrder ); 
 	camTransform = Matrix44::SetTranslation3D(m_camPosition, camTransform);
 	m_mainCamera->SetModelMatrix(camTransform);
 
-	g_renderContext->BeginCamera(*m_mainCamera); 
-	
+	//g_renderContext->BeginCamera(*m_mainCamera); 
+	g_renderContext->BeginCamera(*m_carCamera);
+
 	g_renderContext->ClearColorTargets(Rgba(ui_testColor[0], ui_testColor[1], ui_testColor[2], 1.f));
 
 	float intensity = Clamp(m_ambientIntensity, 0.f, 1.f);
@@ -1449,6 +1472,13 @@ void Game::UpdateCamera()
 {
 	//Listen to forseth
 	//Try and make a smooth follow camera similar to how our RTS camera works but with smooth step
+	Vec3 carPos =  m_carController->GetVehiclePosition();
+	m_carCamera->SetFocalPoint(carPos);
+	//m_carCamera->SetZoomDelta(m_frameZoomDelta);
+
+	Vec3 carForward = m_carController->GetVehicleForwardBasis();
+
+	m_carCamera->Update(carForward);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1489,6 +1519,12 @@ void Game::UpdateImGUITestWidget()
 	cameraAngleFloat[1] = cameraAngle.y;
 	cameraAngleFloat[2] = cameraAngle.z;
 
+	ui_camAngle = m_carCamera->GetAngleValue();
+	ui_camTilt = m_carCamera->GetTiltValue();
+	ui_camHeight = m_carCamera->GetHeightValue();
+	ui_camDistance = m_carCamera->GetDistanceValue();
+
+
 	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
 	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
@@ -1502,6 +1538,11 @@ void Game::UpdateImGUITestWidget()
 	ImGui::DragFloat3("Light Direction", ui_dirLight);
 	ImGui::DragFloat3("Dynamic Spawn Position", ui_dynamicSpawnPos);
 	ImGui::DragFloat3("Dynamic Spawn velocity", ui_dynamicVelocity);
+
+	ImGui::DragFloat("Camera Angle", &ui_camAngle);
+	ImGui::DragFloat("Camera Tilt", &ui_camTilt);
+	ImGui::DragFloat("Camera Height", &ui_camHeight);
+	ImGui::DragFloat("Camera Distance", &ui_camDistance);
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
@@ -1523,6 +1564,11 @@ void Game::UpdateImGUITestWidget()
 	m_dynamicDropVelocity.z = ui_dynamicVelocity[2];
 
 	m_directionalLightPos.Normalize();
+
+	m_carCamera->SetAngleValue(ui_camAngle);
+	m_carCamera->SetTiltValue(ui_camTilt);
+	m_carCamera->SetHeightValue(ui_camHeight);
+	m_carCamera->SetDistanceValue(ui_camDistance);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------

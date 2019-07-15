@@ -182,6 +182,16 @@ Vec3 CarController::GetVehiclePosition() const
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
+Vec3 CarController::GetVehicleForwardBasis() const
+{
+	PxMat44 pose = m_vehicle4W->getRigidDynamicActor()->getGlobalPose();
+	PxVec3 pxForward = pose.getBasis(2);
+
+	Vec3 forward = g_PxPhysXSystem->PxVectorToVec(pxForward);
+	return forward;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
 void CarController::AccelerateForward(float analogAcc)
 {
 	//If I am going reverse, change to first gear

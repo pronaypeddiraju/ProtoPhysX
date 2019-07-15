@@ -28,6 +28,9 @@
     <ClCompile Include="CarController.cpp">
       <Filter>Gameplay</Filter>
     </ClCompile>
+    <ClCompile Include="CarCamera.cpp">
+      <Filter>Gameplay</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Entity.hpp">
@@ -49,5 +52,6 @@
       <Filter>Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="CarController.hpp" />
+    <ClInclude Include="CarCamera.hpp" />
   </ItemGroup>
 </Project>
