@@ -31,6 +31,7 @@ class Shader;
 class SpriteAnimDefenition;
 class CPUMesh;
 class GPUMesh;
+class Model;
 
 struct Camera;
 
@@ -61,6 +62,7 @@ public:
 	void								SetStartupDebugRenderObjects();
 	void								SetupPhysX();
 
+	void								CreatePhysXVehicleObstacles();
 	void								CreatePhysXArticulationChain();
 	void								CreatePhysXChains(const Vec3& position, int length, const PxGeometry& geometry, float separation);
 	void								CreatePhysXConvexHull();
@@ -77,6 +79,7 @@ public:
 	void								RenderUsingMaterial() const;
 	
 	void								RenderPhysXScene() const;
+	void								RenderPhysXCar() const;
 	void								RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numActors, Rgba& color) const;
 	Rgba								GetColorForGeometry(int type, bool isSleeping) const;
 	void								AddMeshForPxCube(CPUMesh& boxMesh, const PxRigidActor& actor, const PxShape& shape, const Rgba& color) const;
@@ -92,6 +95,7 @@ public:
 	
 	void								Update( float deltaTime );
 	void								UpdatePhysXCar( float deltaTime );
+	void								UpdateCamera();
 	void								UpdateImGUI();
 	void								UpdateImGUITestWidget();
 	void								UpdateMouseInputs(float deltaTime);
@@ -130,6 +134,9 @@ public:
 	std::string							m_xmlShaderPath = "default_unlit.xml";
 	std::string							m_materialPath = "couch.mat";
 	std::string							m_defaultMaterialPath = "default.mat";
+	std::string							m_carMeshPath = "Car/Car.mesh";	
+	std::string							m_wheelMeshPath = "Car/Wheel.mesh";
+	std::string							m_wheelFlippedMeshPath = "Car/WheelFlipped.mesh";
 
 	Camera*								m_mainCamera = nullptr;
 	Camera*								m_devConsoleCamera = nullptr;
@@ -157,6 +164,13 @@ public:
 
 	GPUMesh*							m_capsule = nullptr;
 	Matrix44							m_capsuleModel;
+
+	GPUMesh*							m_carModel = nullptr;
+	Vec4								m_offsetCarBody = Vec4(0.f, -0.9f, 0.f, 0.f);
+	GPUMesh*							m_wheelModel = nullptr;
+	GPUMesh*							m_wheelFlippedModel = nullptr;
+	TextureView*						m_carDiffuse = nullptr;
+	TextureView*						m_carNormal = nullptr;
 
 	//Lighting Assignment
 	int									m_lightSlot;

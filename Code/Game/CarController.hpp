@@ -19,6 +19,7 @@ public:
 	//Vehicle Getters
 	PxVehicleDrive4W* GetVehicle() const;
 	PxVehicleDrive4WRawInputData* GetVehicleInputData() const;
+	Vec3	GetVehiclePosition() const;
 
 	//Vehicle Controls
 	void	AccelerateForward(float analogAcc = 0.f);
@@ -26,7 +27,7 @@ public:
 	void	Brake();
 
 	void	Steer(float analogSteer = 0.f);
-	void	SetHandbrake();
+	void	Handbrake();
 
 	void	ReleaseAllControls();
 private:

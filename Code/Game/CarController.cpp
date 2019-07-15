@@ -4,7 +4,7 @@
 #include "Engine/Input/XboxController.hpp"
 #include "Engine/Input/InputSystem.hpp"
 //PhysX
-#include "PxVehicleUtil.h"
+#include "ThirdParty/PhysX/include/vehicle/PxVehicleUtil.h"
 
 //------------------------------------------------------------------------------------------------------------------------------
 // GLOBAL DATA
@@ -107,6 +107,13 @@ void CarController::UpdateInputs(float deltaTime)
 		Brake();
 	}
 
+	//Check hand brake button
+	KeyButtonState buttonBState = playerController.GetButtonState(XBOX_BUTTON_ID_B);
+	if (buttonBState.IsPressed())
+	{
+		Handbrake();
+	}
+
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -162,6 +169,16 @@ physx::PxVehicleDrive4W* CarController::GetVehicle() const
 physx::PxVehicleDrive4WRawInputData* CarController::GetVehicleInputData() const
 {
 	return m_vehicleInputData;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+Vec3 CarController::GetVehiclePosition() const
+{
+	PxMat44 pose = m_vehicle4W->getRigidDynamicActor()->getGlobalPose();
+	PxVec3 pxPosition = pose.getPosition();
+
+	Vec3 position = g_PxPhysXSystem->PxVectorToVec(pxPosition);
+	return position;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -222,6 +239,19 @@ void CarController::Steer(float analogSteer /*= 0.f*/)
 	else
 	{
 		m_vehicleInputData->setAnalogSteer(analogSteer);
+	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void CarController::Handbrake()
+{
+	if (m_digitalControlEnabled)
+	{
+		m_vehicleInputData->setDigitalHandbrake(true);
+	}
+	else
+	{
+		m_vehicleInputData->setAnalogHandbrake(1.f);
 	}
 }
 

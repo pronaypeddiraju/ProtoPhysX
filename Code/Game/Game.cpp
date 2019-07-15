@@ -21,10 +21,12 @@
 #include "Engine/Renderer/CPUMesh.hpp"
 #include "Engine/Renderer/DebugRender.hpp"
 #include "Engine/Renderer/GPUMesh.hpp"
+#include "Engine/Renderer/Model.hpp"
 #include "Engine/Renderer/RenderContext.hpp"
 #include "Engine/Renderer/SpriteSheet.hpp"
 #include "Engine/Renderer/Shader.hpp"
 #include "Engine/Renderer/TextureView.hpp"
+#include "Engine/PhysXSystem/PhysXVehicleFilterShader.hpp"
 //PhysX Includes
 //#include "ThirdParty/PhysX/include/PxPhysicsAPI.h"
 
@@ -304,11 +306,11 @@ void Game::SetupPhysX()
 	PxMaterial* pxMat;
 	pxMat = g_PxPhysXSystem->GetDefaultPxMaterial();
 
+	/*
 	//Add things to your scene
 	PxRigidStatic* groundPlane = PxCreatePlane(*physX, PxPlane(0, 1, 0, 0), *pxMat);
 	pxScene->addActor(*groundPlane);
 
-	/*
 	for (int setIndex = 0; setIndex < 5; setIndex++)
 	{
 		CreatePhysXStack(Vec3(0,0, m_anotherTestTempHackStackZ -= 10.f), 10, 2.f);
@@ -318,6 +320,52 @@ void Game::SetupPhysX()
 	//CreatePhysXConvexHull();
 	//CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
 	//CreatePhysXArticulationChain();
+
+	CreatePhysXVehicleObstacles();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::CreatePhysXVehicleObstacles()
+{
+	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
+	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
+
+	PxMaterial* pxMat;
+	pxMat = g_PxPhysXSystem->GetDefaultPxMaterial();
+
+	const float boxHalfHeight = 1.0f;
+	const float boxZ = 30.0f;
+	PxTransform t(PxVec3(0.f, boxHalfHeight, boxZ), PxQuat(PxIdentity));
+	PxRigidStatic* rs = physX->createRigidStatic(t);
+
+	PxBoxGeometry boxGeom(PxVec3(3.0f, boxHalfHeight, 3.0f));
+	PxShape* shape = PxRigidActorExt::createExclusiveShape(*rs, boxGeom, *pxMat);
+
+	PxFilterData simFilterData(COLLISION_FLAG_OBSTACLE, COLLISION_FLAG_WHEEL, PxPairFlag::eMODIFY_CONTACTS | PxPairFlag::eDETECT_CCD_CONTACT, 0);
+	shape->setSimulationFilterData(simFilterData);
+	PxFilterData qryFilterData;
+	setupDrivableSurface(qryFilterData);
+	shape->setQueryFilterData(qryFilterData);
+
+	pxScene->addActor(*rs);
+
+	for (PxU32 i = 0; i < 64; i++)
+	{
+		t = PxTransform(PxVec3(20.f + i * 0.01f, 2.0f + i * 0.25f, 20.0f + i * 0.025f), PxQuat(PxPi*0.5f, PxVec3(0, 1, 0)));
+		PxRigidDynamic* rd = physX->createRigidDynamic(t);
+
+		boxGeom = PxBoxGeometry(PxVec3(0.08f, 0.25f, 1.0f));
+		shape = PxRigidActorExt::createExclusiveShape(*rd, boxGeom, *pxMat);
+
+		simFilterData = PxFilterData(COLLISION_FLAG_OBSTACLE, COLLISION_FLAG_OBSTACLE_AGAINST, PxPairFlag::eMODIFY_CONTACTS | PxPairFlag::eDETECT_CCD_CONTACT, 0);
+		shape->setSimulationFilterData(simFilterData);
+		setupDrivableSurface(qryFilterData);
+		shape->setQueryFilterData(qryFilterData);
+
+		PxRigidBodyExt::updateMassAndInertia(*rd, 30.0f);
+
+		pxScene->addActor(*rd);
+	}
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -915,6 +963,62 @@ void Game::RenderPhysXScene() const
 		Rgba color = Rgba(1.f, 1.f, 1.f, 1.f);
 		RenderPhysXActors(actors, (int)actors.size(), color);
 	}
+
+	RenderPhysXCar();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::RenderPhysXCar() const
+{
+	//Draw a maximum of 10 shapes
+	PxShape* shapes[10] = { nullptr };
+	CPUMesh carMesh;
+	Matrix44 model;
+
+	PxRigidActor *car = m_carController->GetVehicle()->getRigidDynamicActor();
+	int numShapes = car->getNbShapes();
+	car->getShapes(shapes, numShapes);
+
+	for (int shapeIndex = 0; shapeIndex < numShapes; shapeIndex++)
+	{
+		PxConvexMeshGeometry geometry;
+		shapes[shapeIndex]->getConvexMeshGeometry(geometry);
+
+		PxMat44 pxMat = car->getGlobalPose() * shapes[shapeIndex]->getLocalPose();
+
+		model.SetIBasis(g_PxPhysXSystem->PxVectorToVec(pxMat.column0));
+		model.SetJBasis(g_PxPhysXSystem->PxVectorToVec(pxMat.column1));
+		model.SetKBasis(g_PxPhysXSystem->PxVectorToVec(pxMat.column2));
+		model.SetTBasis(g_PxPhysXSystem->PxVectorToVec(pxMat.column3));
+
+		if (geometry.convexMesh->getNbVertices() == 8)
+		{
+			Vec4 forwardOffsetVec4 = model.GetKBasis4() * 0.3f;
+			model.SetTBasis(g_PxPhysXSystem->PxVectorToVec(pxMat.column3) + m_offsetCarBody + forwardOffsetVec4);
+
+			g_renderContext->SetModelMatrix(model);
+
+			//Draw the car mesh
+			g_renderContext->BindMaterial(g_renderContext->CreateOrGetMaterialFromFile(m_carModel->GetDefaultMaterialName()));
+			g_renderContext->SetModelMatrix(model);
+			g_renderContext->DrawMesh(m_carModel);
+		}
+		else
+		{
+			g_renderContext->BindMaterial(g_renderContext->CreateOrGetMaterialFromFile(m_wheelModel->GetDefaultMaterialName()));
+			g_renderContext->SetModelMatrix(model);
+			if (shapeIndex == 1 || shapeIndex == 3)
+			{
+				g_renderContext->DrawMesh(m_wheelFlippedModel);
+			}
+			else
+			{
+				g_renderContext->DrawMesh(m_wheelModel);
+			}
+		}
+	}
+
+	
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -930,12 +1034,12 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 
 	for (int actorIndex = 0; actorIndex < numActors; actorIndex++)
 	{
-		const PxU32 numShapes = actors[actorIndex]->getNbShapes();
+		const int numShapes = actors[actorIndex]->getNbShapes();
 		actors[actorIndex]->getShapes(shapes, numShapes);
 
 		const bool sleeping = actors[actorIndex]->is<PxRigidDynamic>() ? actors[actorIndex]->is<PxRigidDynamic>()->isSleeping() : false;
 
-		for (PxU32 shapeIndex = 0; shapeIndex < numShapes; shapeIndex++)
+		for (int shapeIndex = 0; shapeIndex < numShapes; shapeIndex++)
 		{
 			int type = shapes[shapeIndex]->getGeometryType();
 
@@ -955,8 +1059,11 @@ void Game::RenderPhysXActors(const std::vector<PxRigidActor*> actors, int numAct
 			break;
 			case PxGeometryType::eCONVEXMESH:
 			{
-				color = GetColorForGeometry(type, sleeping);
-				AddMeshForConvexMesh(cvxMesh, *actors[actorIndex], *shapes[shapeIndex], color);
+				if (numShapes == 1)
+				{
+					color = GetColorForGeometry(type, sleeping);
+					AddMeshForConvexMesh(cvxMesh, *actors[actorIndex], *shapes[shapeIndex], color);
+				}
 			}
 			break;
 			case PxGeometryType::eCAPSULE:
@@ -1300,7 +1407,7 @@ void Game::PostRender()
 void Game::Update( float deltaTime )
 {
 	UpdateMouseInputs(deltaTime);
-
+	
 	g_ImGUI->BeginFrame();
 
 	if(g_devConsole->GetFrameCount() > 1 && !m_devConsoleSetup)
@@ -1327,14 +1434,21 @@ void Game::Update( float deltaTime )
 	m_testDirection = m_testDirection.GetRotatedAboutYDegrees(currentTime * ui_testSlider);
 
 	UpdateImGUI();
-
 	UpdatePhysXCar(deltaTime);
+	UpdateCamera();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdatePhysXCar(float deltaTime)
 {
 	m_carController->Update(deltaTime);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::UpdateCamera()
+{
+	//Listen to forseth
+	//Try and make a smooth follow camera similar to how our RTS camera works but with smooth step
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1561,6 +1675,10 @@ void Game::CreateInitialMeshes()
 	m_pxSphere = new GPUMesh(g_renderContext);
 	m_pxConvexMesh = new GPUMesh(g_renderContext);
 	m_pxCapMesh = new GPUMesh(g_renderContext);
+
+	m_carModel = g_renderContext->CreateOrGetMeshFromFile(m_carMeshPath);
+	m_wheelModel = g_renderContext->CreateOrGetMeshFromFile(m_wheelMeshPath);
+	m_wheelFlippedModel = g_renderContext->CreateOrGetMeshFromFile(m_wheelFlippedMeshPath);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------

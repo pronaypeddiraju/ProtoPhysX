@@ -1,0 +1,9 @@
+<material id="PhysX/car"
+  shader="default_lit.xml">
+
+  <diffuse  src="Car/RallyFighterTexture_D.png" />
+  <normal   src="Car/RallyFighterTexture_N.png" />
+
+  <sampler idx="0" type="linear" />
+
+</material>
