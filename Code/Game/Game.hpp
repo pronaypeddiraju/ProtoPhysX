@@ -63,6 +63,8 @@ public:
 	void								SetStartupDebugRenderObjects();
 	void								SetupPhysX();
 
+	void								CreatePhysXVehicleBoxWall();
+	void								CreateObstacleWall(const int numHorizontalBoxes, const int numVerticalBoxes, const float boxSize, const PxVec3& pos, const PxQuat& quat);
 	void								CreatePhysXVehicleRamp();
 	void								CreatePhysXVehicleObstacles();
 	void								CreatePhysXArticulationChain();

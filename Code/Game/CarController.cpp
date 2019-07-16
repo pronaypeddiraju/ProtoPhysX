@@ -57,11 +57,11 @@ void CarController::Update(float deltaTime)
 {
 	VehiclePhysicsUpdate(deltaTime);
 
-	UpdateInputs(deltaTime);
+	UpdateInputs();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void CarController::UpdateInputs(float deltaTime)
+void CarController::UpdateInputs()
 {
 	//First reset all the input on the car
 	ReleaseAllControls();
@@ -283,5 +283,11 @@ void CarController::ReleaseAllControls()
 		m_vehicleInputData->setAnalogBrake(0.0f);
 		m_vehicleInputData->setAnalogHandbrake(0.0f);
 	}
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void CarController::ReleaseVehicle()
+{
+	PX_RELEASE(m_vehicle4W);
 }
 

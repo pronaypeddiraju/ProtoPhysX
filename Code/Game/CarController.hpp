@@ -13,7 +13,7 @@ public:
 	bool	IsDigitalInputEnabled() const;
 
 	void	Update(float deltaTime);
-	void	UpdateInputs(float deltaTime);
+	void	UpdateInputs();
 	void	VehiclePhysicsUpdate(float deltaTime);
 
 	//Vehicle Getters
@@ -31,6 +31,7 @@ public:
 	void	Handbrake();
 
 	void	ReleaseAllControls();
+	void	ReleaseVehicle();
 private:
 
 

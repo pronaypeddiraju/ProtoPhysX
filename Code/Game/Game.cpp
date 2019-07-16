@@ -332,6 +332,58 @@ void Game::SetupPhysX()
 	//Vehicle SDK only
 	CreatePhysXVehicleObstacles();
 	CreatePhysXVehicleRamp();
+	CreatePhysXVehicleBoxWall();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::CreatePhysXVehicleBoxWall()
+{
+	//Add a wall made of dynamic objects with cuboid shapes for bricks.
+	PxTransform t(PxVec3(-20.f, 0.f, 0.f), PxQuat(-0.000002f, -0.837118f, -0.000004f, 0.547022f));
+	CreateObstacleWall(12, 4, 1.0f, t.p, t.q);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::CreateObstacleWall(const int numHorizontalBoxes, const int numVerticalBoxes, const float boxSize, const PxVec3& pos, const PxQuat& quat)
+{
+	const PxF32 density = 50.0f;
+
+	const PxF32 sizeX = boxSize;
+	const PxF32 sizeY = boxSize;
+	const PxF32 sizeZ = boxSize;
+
+	const PxF32 mass = sizeX * sizeY*sizeZ*density;
+	const PxVec3 halfExtents(sizeX*0.5f, sizeY*0.5f, sizeZ*0.5f);
+	PxBoxGeometry geometry(halfExtents);
+	PxTransform shapeTransforms[1] = { PxTransform(PxIdentity) };
+	PxGeometry* shapeGeometries[1] = { &geometry };
+	PxMaterial* shapeMaterials[1] = { g_PxPhysXSystem->GetDefaultPxMaterial() };
+
+	const PxF32 spacing = 0.0001f;
+	PxVec3 relPos(0.0f, sizeY / 2, 0.0f);
+	PxF32 offsetX = -(numHorizontalBoxes * (sizeX + spacing) * 0.5f);
+	PxF32 offsetZ = 0.0f;
+
+	for (PxU32 k = 0; k < (PxU32)numVerticalBoxes; k++)
+	{
+		for (PxU32 i = 0; i < (PxU32)numHorizontalBoxes; i++)
+		{
+			relPos.x = offsetX + (sizeX + spacing)*i;
+			relPos.z = offsetZ;
+			PxTransform transform(pos + quat.rotate(relPos), quat);
+			g_PxPhysXSystem->AddDynamicObstacle(transform, mass, 1, shapeTransforms, shapeGeometries, shapeMaterials);
+		}
+
+		if (0 == (k % 2))
+		{
+			offsetX += sizeX / 2;
+		}
+		else
+		{
+			offsetX -= sizeX / 2;
+		}
+		relPos.y += (sizeY + spacing);
+	}
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -365,19 +417,11 @@ void Game::CreatePhysXVehicleRamp()
 		PxTransform shapeTransforms[1] = { PxTransform(PxIdentity) };
 		PxMaterial* shapeMaterials[1] = { pxMaterial };
 		PxGeometry* shapeGeometries[1] = { &geometry };
-		PxTransform t1(PxVec3(-60.f, 0.f, 0.f), PxQuat(0.000013, -0.406322, 0.000006, 0.913730));
+		PxTransform t1(PxVec3(-60.f, 0.f, 0.f), PxQuat(0.000013f, -0.406322f, 0.000006f, 0.913730f));
 		g_PxPhysXSystem->AddStaticObstacle(t1, 1, shapeTransforms, shapeGeometries, shapeMaterials);
-		PxTransform t2(PxVec3(-80, 0.f, 0.f), PxQuat(0.000013, -0.406322, 0.000006, 0.913730));
+		PxTransform t2(PxVec3(-80, 0.f, 0.f), PxQuat(0.000013f, -0.406322f, 0.000006f, 0.913730f));
 		g_PxPhysXSystem->AddStaticObstacle(t2, 1, shapeTransforms, shapeGeometries, shapeMaterials);
 	}
-
-	/*
-	//Add a wall made of dynamic objects with cuboid shapes for bricks.
-	{
-		PxTransform t(PxVec3(-37.525650, 9.864201, -77.926567), PxQuat(-0.000286, 0.728016, -0.000290, -0.685561));
-		createWall(12, 4, 1.0f, t.p, t.q);
-	}
-	*/
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -822,6 +866,8 @@ void Game::DebugEnabled()
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::Shutdown()
 {
+	//m_carController->ReleaseVehicle();
+
 	delete m_mainCamera;
 	m_mainCamera = nullptr;
 
@@ -919,9 +965,9 @@ void Game::Render() const
 	m_mainCamera->SetModelMatrix(camTransform);
 
 	//For regular PhysX
-	g_renderContext->BeginCamera(*m_mainCamera); 
+	//g_renderContext->BeginCamera(*m_mainCamera); 
 	//For Car PhysX (Vehicle SDK)
-	//g_renderContext->BeginCamera(*m_carCamera);
+	g_renderContext->BeginCamera(*m_carCamera);
 
 	g_renderContext->ClearColorTargets(Rgba(ui_cameraClearColor[0], ui_cameraClearColor[1], ui_cameraClearColor[2], 1.f));
 
