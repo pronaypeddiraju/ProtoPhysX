@@ -308,28 +308,76 @@ void Game::SetStartupDebugRenderObjects()
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::SetupPhysX()
 {
+	/*
 	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
 	PxScene* pxScene = g_PxPhysXSystem->GetPhysXScene();
 
 	PxMaterial* pxMat;
 	pxMat = g_PxPhysXSystem->GetDefaultPxMaterial();
 
-	/*
 	//Add things to your scene
 	PxRigidStatic* groundPlane = PxCreatePlane(*physX, PxPlane(0, 1, 0, 0), *pxMat);
 	pxScene->addActor(*groundPlane);
 
 	for (int setIndex = 0; setIndex < 5; setIndex++)
 	{
-		CreatePhysXStack(Vec3(0,0, m_anotherTestTempHackStackZ -= 10.f), 10, 2.f);
+		CreatePhysXStack(Vec3(0, 0, m_anotherTestTempHackStackZ -= 10.f), 10, 2.f);
 	}
+
+	CreatePhysXConvexHull();
+	CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
+	CreatePhysXArticulationChain();
 	*/
 
-	//CreatePhysXConvexHull();
-	//CreatePhysXChains(m_chainPosition, m_chainLength, PxBoxGeometry(2.0f, 0.5f, 0.5f), m_chainSeperation);
-	//CreatePhysXArticulationChain();
-
+	//Vehicle SDK only
 	CreatePhysXVehicleObstacles();
+	CreatePhysXVehicleRamp();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+void Game::CreatePhysXVehicleRamp()
+{
+	PxPhysics* physX = g_PxPhysXSystem->GetPhysXSDK();
+	PxCooking* pxCooking = g_PxPhysXSystem->GetPhysXCookingModule();
+	PxMaterial* pxMaterial = g_PxPhysXSystem->GetDefaultPxMaterial();
+
+	//Add a really big ramp to jump over the car stack.
+	{
+		PxVec3 halfExtentsRamp(5.0f, 1.9f, 7.0f);
+		PxConvexMeshGeometry geomRamp(g_PxPhysXSystem->CreateWedgeConvexMesh(halfExtentsRamp, *physX, *pxCooking));
+		PxTransform shapeTransforms[1] = { PxTransform(PxIdentity) };
+		PxMaterial* shapeMaterials[1] = { pxMaterial };
+		PxGeometry* shapeGeometries[1] = { &geomRamp };
+
+		Matrix44 bigRampModel;
+		bigRampModel.MakeTranslation3D(Vec3(-10.f, 0.f, 0.f));
+		Matrix44 rotation = Matrix44::MakeYRotationDegrees(180.f);
+		bigRampModel = bigRampModel.AppendMatrix(rotation);
+
+		PxTransform tRamp(g_PxPhysXSystem->VecToPxVector(bigRampModel.GetTBasis()), g_PxPhysXSystem->MakeQuaternionFromMatrix(bigRampModel) );
+		g_PxPhysXSystem->AddStaticObstacle(tRamp, 1, shapeTransforms, shapeGeometries, shapeMaterials);
+	}
+
+	//Add two ramps side by side with a gap in between
+	{
+		PxVec3 halfExtents(3.0f, 1.5f, 3.5f);
+		PxConvexMeshGeometry geometry(g_PxPhysXSystem->CreateWedgeConvexMesh(halfExtents, *physX, *pxCooking));
+		PxTransform shapeTransforms[1] = { PxTransform(PxIdentity) };
+		PxMaterial* shapeMaterials[1] = { pxMaterial };
+		PxGeometry* shapeGeometries[1] = { &geometry };
+		PxTransform t1(PxVec3(-60.f, 0.f, 0.f), PxQuat(0.000013, -0.406322, 0.000006, 0.913730));
+		g_PxPhysXSystem->AddStaticObstacle(t1, 1, shapeTransforms, shapeGeometries, shapeMaterials);
+		PxTransform t2(PxVec3(-80, 0.f, 0.f), PxQuat(0.000013, -0.406322, 0.000006, 0.913730));
+		g_PxPhysXSystem->AddStaticObstacle(t2, 1, shapeTransforms, shapeGeometries, shapeMaterials);
+	}
+
+	/*
+	//Add a wall made of dynamic objects with cuboid shapes for bricks.
+	{
+		PxTransform t(PxVec3(-37.525650, 9.864201, -77.926567), PxQuat(-0.000286, 0.728016, -0.000290, -0.685561));
+		createWall(12, 4, 1.0f, t.p, t.q);
+	}
+	*/
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -870,10 +918,12 @@ void Game::Render() const
 	camTransform = Matrix44::SetTranslation3D(m_camPosition, camTransform);
 	m_mainCamera->SetModelMatrix(camTransform);
 
-	//g_renderContext->BeginCamera(*m_mainCamera); 
-	g_renderContext->BeginCamera(*m_carCamera);
+	//For regular PhysX
+	g_renderContext->BeginCamera(*m_mainCamera); 
+	//For Car PhysX (Vehicle SDK)
+	//g_renderContext->BeginCamera(*m_carCamera);
 
-	g_renderContext->ClearColorTargets(Rgba(ui_testColor[0], ui_testColor[1], ui_testColor[2], 1.f));
+	g_renderContext->ClearColorTargets(Rgba(ui_cameraClearColor[0], ui_cameraClearColor[1], ui_cameraClearColor[2], 1.f));
 
 	float intensity = Clamp(m_ambientIntensity, 0.f, 1.f);
 	g_renderContext->SetAmbientLight( Rgba::WHITE, intensity ); 
@@ -987,6 +1037,7 @@ void Game::RenderPhysXScene() const
 		RenderPhysXActors(actors, (int)actors.size(), color);
 	}
 
+	//Only for Vehicle SDK
 	RenderPhysXCar();
 }
 
@@ -1171,7 +1222,7 @@ Rgba Game::GetColorForGeometry(int type, bool isSleeping) const
 		}
 		else
 		{
-			color = Rgba::MAGENTA;
+			color = Rgba::ORGANIC_BLUE;
 		}
 	}
 	break;
@@ -1458,7 +1509,7 @@ void Game::Update( float deltaTime )
 
 	UpdateImGUI();
 	UpdatePhysXCar(deltaTime);
-	UpdateCamera();
+	UpdateCarCamera(deltaTime);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1468,7 +1519,7 @@ void Game::UpdatePhysXCar(float deltaTime)
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void Game::UpdateCamera()
+void Game::UpdateCarCamera(float deltaTime)
 {
 	//Listen to forseth
 	//Try and make a smooth follow camera similar to how our RTS camera works but with smooth step
@@ -1478,7 +1529,7 @@ void Game::UpdateCamera()
 
 	Vec3 carForward = m_carController->GetVehicleForwardBasis();
 
-	m_carCamera->Update(carForward);
+	m_carCamera->Update(carForward, deltaTime);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1486,13 +1537,13 @@ void Game::UpdateImGUI()
 {
 	ImGui::NewFrame();
 
-	UpdateImGUITestWidget();
+	UpdateImGUIPhysXWidget();
 
 	ImGui::End();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void Game::UpdateImGUITestWidget()
+void Game::UpdateImGUIPhysXWidget()
 {
 	//Use this place to create/update info for imGui
 
@@ -1523,18 +1574,18 @@ void Game::UpdateImGUITestWidget()
 	ui_camTilt = m_carCamera->GetTiltValue();
 	ui_camHeight = m_carCamera->GetHeightValue();
 	ui_camDistance = m_carCamera->GetDistanceValue();
+	ui_camLerpSpeed = m_carCamera->GetLerpSpeed();
 
+	ImGui::Begin("PhysX Scene Controls");                          // Create a window called "Hello, world!" and append into it.
 
-	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+	//ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+	//ImGui::Checkbox("Demo Window", &ui_testCheck1);      // Edit bools storing our window open/close state
+	//ImGui::Checkbox("Another Window", &ui_testCheck2);
 
-	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-	ImGui::Checkbox("Demo Window", &ui_testCheck1);      // Edit bools storing our window open/close state
-	ImGui::Checkbox("Another Window", &ui_testCheck2);
-
-	ImGui::SliderFloat("float", &ui_testSlider, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-	ImGui::ColorEdit3("clear color", (float*)&ui_testColor); // Edit 3 floats representing a color
-	ImGui::DragFloat3("Camera Position", ui_camPosition);
-	ImGui::DragFloat3("Camera Angle", cameraAngleFloat);
+	//ImGui::SliderFloat("float", &ui_testSlider, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+	ImGui::ColorEdit3("Clear Color", (float*)&ui_cameraClearColor); // Edit 3 floats representing a color
+	ImGui::DragFloat3("Main Camera Position", ui_camPosition);
+	ImGui::DragFloat3("Main Camera Angle", cameraAngleFloat);
 	ImGui::DragFloat3("Light Direction", ui_dirLight);
 	ImGui::DragFloat3("Dynamic Spawn Position", ui_dynamicSpawnPos);
 	ImGui::DragFloat3("Dynamic Spawn velocity", ui_dynamicVelocity);
@@ -1543,6 +1594,7 @@ void Game::UpdateImGUITestWidget()
 	ImGui::DragFloat("Camera Tilt", &ui_camTilt);
 	ImGui::DragFloat("Camera Height", &ui_camHeight);
 	ImGui::DragFloat("Camera Distance", &ui_camDistance);
+	ImGui::DragFloat("Camera Lerp Speed", &ui_camLerpSpeed);
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
@@ -1569,6 +1621,7 @@ void Game::UpdateImGUITestWidget()
 	m_carCamera->SetTiltValue(ui_camTilt);
 	m_carCamera->SetHeightValue(ui_camHeight);
 	m_carCamera->SetDistanceValue(ui_camDistance);
+	m_carCamera->SetLerpSpeed(ui_camLerpSpeed);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1698,7 +1751,7 @@ void Game::CreateInitialMeshes()
 
 	//Create another quad as a base plane
 	mesh.Clear();
-	CPUMeshAddQuad(&mesh, AABB2(Vec2(-1000.f, -1000.f), Vec2(1000.f, 1000.f)), Rgba::BLUE);
+	CPUMeshAddQuad(&mesh, AABB2(Vec2(-1000.f, -1000.f), Vec2(1000.f, 1000.f)), Rgba::ORGANIC_PURPLE);
 
 	//mesh.SetLayout<Vertex_Lit>();
 	m_baseQuad = new GPUMesh( g_renderContext ); 

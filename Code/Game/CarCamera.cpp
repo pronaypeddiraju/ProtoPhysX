@@ -20,14 +20,15 @@ CarCamera::~CarCamera()
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
-void CarCamera::Update(const Vec3& carForward)
+void CarCamera::Update(const Vec3& carForward, float deltaTime)
 {
 	Vec3 offset = carForward * m_distance * -1.f;
 	offset += Vec3::UP * m_height;
 
 	m_targetPosition = m_focalPoint + offset;
 	//We will lerp this value to m_target position next
-	m_camPosition = m_focalPoint + offset;
+	m_camPosition = Vec3::LerpVector(m_camPosition, m_targetPosition, m_lerpSpeed * deltaTime);
+	//m_camPosition = m_focalPoint + offset;
 
 	//Give me a model matrix of something at offset looking at the focal point. This is now my model matrix
 	m_modelMatrix = Matrix44::LookAt(m_camPosition, m_focalPoint, Vec3(0.f, 1.f, 0.f));
@@ -89,6 +90,12 @@ void CarCamera::SetDistanceValue(float distance)
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
+void CarCamera::SetLerpSpeed(float lerpSpeed)
+{
+	m_lerpSpeed = lerpSpeed;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
 float CarCamera::GetAngleValue() const
 {
 	return m_angle;
@@ -110,4 +117,10 @@ float CarCamera::GetHeightValue() const
 float CarCamera::GetDistanceValue() const
 {
 	return m_distance;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+float CarCamera::GetLerpSpeed() const
+{
+	return m_lerpSpeed;
 }

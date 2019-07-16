@@ -8,7 +8,7 @@ public:
 	CarCamera();
 	~CarCamera();
 
-	void Update(const Vec3& carForward);
+	void Update(const Vec3& carForward, float deltaTime);
 	void SetFocalPoint(Vec3 const &pos);
 	void SetZoom(float zoom); //Manipulates distance
 	void SetAngleOffset(float angleOffset); // really is setting an angle offset
@@ -18,11 +18,13 @@ public:
 	void SetAngleValue(float angle);
 	void SetHeightValue(float height);
 	void SetDistanceValue(float distance);
+	void SetLerpSpeed(float lerpSpeed);
 
 	float GetAngleValue() const;
 	float GetTiltValue() const;
 	float GetHeightValue() const;
 	float GetDistanceValue() const;
+	float GetLerpSpeed() const;
 
 private:
 	Vec3			m_focalPoint = Vec3::ZERO;
@@ -37,6 +39,7 @@ private:
 
 	float			m_defaultAngle = 90.0f;
 	float			m_defaultTilt = -70.0f;
+	float			m_lerpSpeed = 6.f;
 
 	Vec2			m_tiltBounds = Vec2(10.f, 40.f);
 

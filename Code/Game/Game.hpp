@@ -63,6 +63,7 @@ public:
 	void								SetStartupDebugRenderObjects();
 	void								SetupPhysX();
 
+	void								CreatePhysXVehicleRamp();
 	void								CreatePhysXVehicleObstacles();
 	void								CreatePhysXArticulationChain();
 	void								CreatePhysXChains(const Vec3& position, int length, const PxGeometry& geometry, float separation);
@@ -98,9 +99,9 @@ public:
 	
 	void								Update( float deltaTime );
 	void								UpdatePhysXCar( float deltaTime );
-	void								UpdateCamera();
+	void								UpdateCarCamera(float deltaTime);
 	void								UpdateImGUI();
-	void								UpdateImGUITestWidget();
+	void								UpdateImGUIPhysXWidget();
 	void								UpdateMouseInputs(float deltaTime);
 	void								UpdateLightPositions();
 	
@@ -206,7 +207,7 @@ public:
 	//------------------------------------------------------------------------------------------------------------------------------
 
 	float								ui_testSlider = 0.5f;
-	float								ui_testColor[3] = { 0.f, 0.f, 0.f };
+	float								ui_cameraClearColor[3] = { 0.f, 0.f, 0.f };
 	bool								ui_testCheck1 = false;
 	bool								ui_testCheck2 = true;
 	float								ui_camPosition[3] = { 0.f, 0.f, 0.f };
@@ -218,6 +219,7 @@ public:
 	float								ui_camAngle = 10.f;
 	float								ui_camHeight = 10.f;
 	float								ui_camDistance = 10.f;
+	float								ui_camLerpSpeed = 0.1f;
 
 	//------------------------------------------------------------------------------------------------------------------------------
 	// PhysX Test Variables
