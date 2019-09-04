@@ -852,6 +852,10 @@ void Game::HandleKeyPressed(unsigned char keyCode)
 			g_eventSystem->FireEvent("Quit");
 			break;
 		}
+		case NUM_1:
+		{
+			m_debugViewCarCollider = !m_debugViewCarCollider;
+		}
 		default:
 		break;
 	}
@@ -1093,6 +1097,7 @@ void Game::RenderPhysXCar() const
 	//Draw a maximum of 10 shapes
 	PxShape* shapes[10] = { nullptr };
 	CPUMesh carMesh;
+	CPUMesh cvxMesh;
 	Matrix44 model;
 
 	PxRigidActor *car = m_carController->GetVehicle()->getRigidDynamicActor();
@@ -1122,6 +1127,17 @@ void Game::RenderPhysXCar() const
 			g_renderContext->BindMaterial(g_renderContext->CreateOrGetMaterialFromFile(m_carModel->GetDefaultMaterialName()));
 			g_renderContext->SetModelMatrix(model);
 			g_renderContext->DrawMesh(m_carModel);
+
+			if (m_debugViewCarCollider)
+			{
+				g_renderContext->SetModelMatrix(Matrix44::IDENTITY);
+				g_renderContext->BindMaterial(m_defaultMaterial);
+				AddMeshForConvexMesh(cvxMesh, *car, *shapes[shapeIndex], Rgba(1.f, 0.f, 1.f, 0.3f));
+				GPUMesh debugMesh(g_renderContext);
+				debugMesh.CreateFromCPUMesh<Vertex_Lit>(&cvxMesh);
+				g_renderContext->DrawMesh(&debugMesh);
+			}
+		
 		}
 		else
 		{
