@@ -1544,7 +1544,7 @@ void Game::Update( float deltaTime )
 {
 	UpdateMouseInputs(deltaTime);
 	
-	g_ImGUI->BeginFrame();
+	//g_ImGUI->BeginFrame();
 
 	if(g_devConsole->GetFrameCount() > 1 && !m_devConsoleSetup)
 	{
@@ -1597,11 +1597,7 @@ void Game::UpdateCarCamera(float deltaTime)
 //------------------------------------------------------------------------------------------------------------------------------
 void Game::UpdateImGUI()
 {
-	ImGui::NewFrame();
-
 	UpdateImGUIPhysXWidget();
-
-	ImGui::End();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1684,6 +1680,8 @@ void Game::UpdateImGUIPhysXWidget()
 	m_carCamera->SetHeightValue(ui_camHeight);
 	m_carCamera->SetDistanceValue(ui_camDistance);
 	m_carCamera->SetLerpSpeed(ui_camLerpSpeed);
+
+	ImGui::End();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
