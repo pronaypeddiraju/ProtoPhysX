@@ -1,54 +1,54 @@
-##PhysX Project##
+PhysX Project
 
-#Project Objectives#
+Project Objectives
 
-The objective of this project was to simply integrate the Nvidia PhysX Physics Engine with my personal C++ game engine. This project features the use of Nvidia PhysX as well as the Nvidia Vehicle SDK. The vehicle has a car controller that currently works only with the use of an xbox controller.
-The project also features PhysX joints, articulation and other PhysX features.
+	The objective of this project was to simply integrate the Nvidia PhysX Physics Engine with my personal C++ game engine. This project features the use of Nvidia PhysX as well as the Nvidia Vehicle SDK. The vehicle has a car controller that currently works only with the use of an xbox controller.
+	The project also features PhysX joints, articulation and other PhysX features.
 
 NOTE: As this project is integrated in my personal C++ engine, it has been added to this project as a submodule. However, there is a simple setup guide that shows how you can get PhysX running in any other VC++ project provided a rendering engine has been implemented. For a guide on how to setup physX on your project, simply follow the guide below. More posts and information will be posted on my website and updated here for more in depth tutorials.
 
-#Project License#
+Project License
 
-I will post a formal license soon. Until then please feel free to do what you want with this project's code. 
+	I will post a formal license soon. Until then please feel free to do what you want with this project's code. 
 
-##PhysX SDK Setup Guide##
+PhysX SDK Setup Guide
 
-In this guide we will discuss how to setup Nvidia PhysX with a Visual C++ project
+	In this guide we will discuss how to setup Nvidia PhysX with a Visual C++ project
 
-#Sections to this post
+Sections to this post
 
 - Section 1. Generating Sample Projects
 - Section 2. Linking PhysX Libraries
 - Section 3. Setting up Runtimes and Configurations
 - Section 4. Using PhysX with your project
 
-##Section 1. Generating Sample Projects
+Section 1. Generating Sample Projects
 
-Before we can use Nvidia PhysX with our project, we need to setup the libraries required with our project. To do this you will need to first download and extract the files for Nvidia PhysX. I used version 4.0 but the steps should be the same for other versions of PhysX
+	Before we can use Nvidia PhysX with our project, we need to setup the libraries required with our project. To do this you will need to first download and extract the files for Nvidia PhysX. I used version 4.0 but the steps should be the same for other versions of PhysX
 
-#Step 1 : Getting required files and software#
+Step 1 : Getting required files and software#
 
 - Download and extract the PhysX SDK from Nvidia's website
 - Install CMake
 - Install Phython
 - Add Python to your system path if it doesn't already exist
 
-#Step 2 : Generating all projects#
+Step 2 : Generating all projects#
 
 - Run the `generate_projects.bat` file to create the visual studio project files for all of PhysX's projects 
 - After you have the generated the project files successfully, run the sample projects and make sure everything is working
 - Once we have the sample files running, we can move on to the next step which is setting up the libraries required
 
-##Section 2. Linking PhysX Libraries
+Section 2. Linking PhysX Libraries
 
-Now that we have all the source files, lib files and dll files required to use PhysX, we can start linking the libraries required to our projects.
-There are different approaches to doing this, one of which is to compile the source code of PhysX with your project. Using source code can be helpful in cases where we would want to view and modify the inner workings of PhysX. For this guide however, we will not be compiling the source code of PhysX, instead we will link the static libraries provided by PhysX to our project in Visual Studio.
+	Now that we have all the source files, lib files and dll files required to use PhysX, we can start linking the libraries required to our projects.
+	There are different approaches to doing this, one of which is to compile the source code of PhysX with your project. Using source code can be helpful in cases where we would want to view and modify the inner workings of PhysX. For this guide however, we will not be compiling the source code of PhysX, instead we will link the static libraries provided by PhysX to our project in Visual Studio.
 
-#Step 1 : Finding the library files we need#
+Step 1 : Finding the library files we need#
 
- PhysX has a ton of features and while these features allow us to explore many interesting usecases, it is recommended to only use the libraries you need and link other libraries as and when they will be required by your project.
+	PhysX has a ton of features and while these features allow us to explore many interesting usecases, it is recommended to only use the libraries you need and link other libraries as and when they will be required by your project.
  
- This guide will continue to showcase some features of PhysX and hence demonstrate the use of numerous libraries. You may wish to not use some of these libraries or link more libraries depending on your needs.
+ 	This guide will continue to showcase some features of PhysX and hence demonstrate the use of numerous libraries. You may wish to not use some of these libraries or link more libraries depending on your needs.
 
 - Find your libraries in the `physx/bin` folder with your respective build configuration
 (I used Windows so my library files were in the `win.x86_64.vc141.mt` folder)
@@ -60,10 +60,11 @@ There are different approaches to doing this, one of which is to compile the sou
 	- On the properties window select linker in the left tab of configuration properties
 	- You will see an `additional include directories` option, add your include path as a new entry in the list
 
-#Step 2 : Telling the linker what we need#
+Step 2 : Telling the linker what we need#
 
-Now that we have added the include directories, we will need to inform the linker to link with these libraries during compile time.
-This can be done in 2 ways:
+	Now that we have added the include directories, we will need to inform the linker to link with these libraries during compile time.
+
+	This can be done in 2 ways:
 	1. You can open the properties panel for your project and setup `additional dependencies`
 		- Properties->Linker->Input->Additional Dependencies
 
@@ -91,35 +92,37 @@ This can be done in 2 ways:
 #endif
 ```
 
-##NOTE##
+NOTE
 In the code snippet above, the #pragma comment(lib, < file_path >) tells us what libraries we wish to link for the x64 platform for the Debug and Release build configurations. You will need to set this up for the different configurations we intend to use with our project. The next section will go into more detail on configurations and how you may set them up
 
-##Section 3. Setting up Runtimes and Configurations
+Section 3. Setting up Runtimes and Configurations
 
-In this section we will talk about the runtimes we will use with PhysX and the configuration options we may use with our project.
+	In this section we will talk about the runtimes we will use with PhysX and the configuration options we may use with our project.
 
-#Step 1 : Runtimes for Build configurations
+Step 1 : Runtimes for Build configurations
 
-Your project will have 1 or more build configurations depending on your project setup. For my project, I have setup a Debug and a Release build configurations for both the windows x86 and x64 platforms. Your configurations may vary depending on your usecase but this guide assumes you have atleast one build configuration setup.
+	Your project will have 1 or more build configurations depending on your project setup. For my project, I have setup a Debug and a Release build configurations for both the windows x86 and x64 platforms. Your configurations may vary depending on your usecase but this guide assumes you have atleast one build configuration setup.
 
 To setup a new build configuration, you may perform the steps below:
 - Right click on your project and select properties
 - Click on the Configuration Manager button on the top right corner
 - In your Configuration Manager window, you may use the drop downs on `solution_configuration` and `solution_platform` to create a new configuration of your choice
 
-##NOTE##
-PhysX supports 4 different build configurations. They are Debug, Release, Checked and Profile. Information on the various build configurations supported can be found on the PhysX API documentation online.
+NOTE:
 
-#Step 2 : Code generation settings
+	PhysX supports 4 different build configurations. They are Debug, Release, Checked and Profile. Information on the various build configurations supported can be found on the PhysX API documentation online.
 
-Once you have your build configurations setup, you will need to setup your `runtime_library` settings for the project.
+Step 2 : Code generation settings
+
+	Once you have your build configurations setup, you will need to setup your `runtime_library` settings for the project.
 
 To do so, follow the steps below:
 - Open your project properties tab
 - Select the C/C++ drop down in the configuration properties tab on the left
 - Select Code Generation option
 
-##NOTE##
+NOTE
+
 Now there are a few things to consider when you are in this window. You will need to setup different runtime options for your different build configurations. The Release code for PhysX uses `Multi Threaded (/MT)` setting while the Debug configuration uses `Multi Threaded Debug (/MTd)` option.
 
 - Select your build configuration from the drop down on the top left
@@ -127,9 +130,9 @@ Now there are a few things to consider when you are in this window. You will nee
 
 With that you have your runtime libraries setup for PhysX. You may compile your code to make sure your existing code base is working as exepected.
 
-#Step 3 : Linking required libraries appropriately
+Step 3 : Linking required libraries appropriately
 
-Now although we performed the linking of libraries in the previous section, we will double check that we are still linking liraries for our new build configurations for all our supported platforms.
+	Now although we performed the linking of libraries in the previous section, we will double check that we are still linking liraries for our new build configurations for all our supported platforms.
 
 To do so, please refer again to Section 2, step 2 to make sure you have your libraries setup for your different configurations. The code I used is as follows:
 
@@ -170,15 +173,15 @@ To do so, please refer again to Section 2, step 2 to make sure you have your lib
 #endif
 ```
 
-The above snippet shows the code required to link the libraries for both the Release and Debug configurations for the x86 or x64 platforms respectively. Your setup may vary.
+	The above snippet shows the code required to link the libraries for both the Release and Debug configurations for the x86 or x64 platforms respectively. Your setup may vary.
 
 With this you should have the required Nvidia PhysX static libraries setup with your project.
 
-##Section 4. Using PhysX with your project
+Section 4. Using PhysX with your project
 
-This is where things get fun. Setting up PhysX is simple and easy, all we need to do is make sure we start up PhysX when our program starts, run some logic to update PhysX every frame and finally have a shut down step that will close PhysX.
+	This is where things get fun. Setting up PhysX is simple and easy, all we need to do is make sure we start up PhysX when our program starts, run some logic to update PhysX every frame and finally have a shut down step that will close PhysX.
 
-#Step 1 : The Start up logic
+Step 1 : The Start up logic
 
 First we will include the required headers for PhysX. You may include each module seperately but for this guide, I will simply include the `PxPhysicsAPI.h` header to include all the PhysX files we need in our code base
 
@@ -259,12 +262,13 @@ void PhysXSystem::StartUp()
 }
 ```
 
-##NOTE##
-You will find the PhysX samples we compiled helpful here. You can find the startup logic for various different projects and how PhysX is initialized for differnet features.
+NOTE
 
-#Step 2 : Frame Update Logic
+	You will find the PhysX samples we compiled helpful here. You can find the startup logic for various different projects and how PhysX is initialized for differnet features.
 
-During each frame of our program we will need to call some functions to tell physx to update. This logic will allow PhysX to update the various parameters for it's rigidbodies and other physics objects.
+Step 2 : Frame Update Logic
+
+	During each frame of our program we will need to call some functions to tell physx to update. This logic will allow PhysX to update the various parameters for it's rigidbodies and other physics objects.
 
 To do so, we simply call 2 lines of code in our update function like so:
 
@@ -281,9 +285,9 @@ The `simulate` function runs a simulation for the time we pass in as a parameter
 
 The `fetchResults` function will fetch simulation results from PhysX for all objects in our scene.
 
-#Step 3 : Shutting down PhysX
+Step 3 : Shutting down PhysX
 
-Finally when we are closing our program, we want to shut down PhysX appropriately
+	Finally when we are closing our program, we want to shut down PhysX appropriately
 
 To do so, we will need to release the memory taken up by some PhysX system objects. To simplify our code, we can use a macro that performs the release of memeory for any object passed to it.
 
@@ -317,8 +321,9 @@ void PhysXSystem::ShutDown()
 }
 ```
 
-##NOTE##
-We want to release the PhysX Foundation last as other PhysX objects depend on it.
+NOTE
+
+	We want to release the PhysX Foundation last as other PhysX objects depend on it.
 
 With this logic added to our program, we are successfully initializing, using and shutting down our physics simulation. Compile your program to make sure everything is working as expected. In the next post, we will discuss how to setup a simple PhysX simulation using rigidbodies in the world.# ProtoPhysX
 
