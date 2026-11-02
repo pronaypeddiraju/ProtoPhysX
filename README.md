@@ -9,7 +9,7 @@ NOTE: As this project is integrated in my personal C++ engine, it has been added
 
 Project License
 
-	I will post a formal license soon. Until then please feel free to do what you want with this project's code. 
+The code I wrote here is under the [MIT License](LICENSE). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for what it doesn't cover.
 
 PhysX SDK Setup Guide
 
