@@ -41,7 +41,7 @@ bool g_debugMode = false;
 Game::Game()
 {
 	m_isGameAlive = true;
-	m_testAudioID = g_audio->CreateOrGetSound("Data/Audio/UproarLilWayne.mp3");
+	m_testAudioID = g_audio->CreateOrGetSound("Data/Audio/TestSound.mp3");
 
 	m_squirrelFont = g_renderContext->CreateOrGetBitmapFontFromFile("SquirrelFixedFont");
 
